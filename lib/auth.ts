@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cacheLife } from "next/cache";
 import { getDb } from "@/lib/db";
@@ -8,13 +8,39 @@ import { getDb } from "@/lib/db";
 const COOKIE = "bingo_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 
-export type PublicUser = { id: number; username: string };
+export type PublicUser = { id: number; username: string; token: string };
+
+const TOKEN_RE = /^[a-f0-9]{64}$/;
 
 type SessionRow = {
   id: number;
   username: string;
   expires_at: number;
 };
+
+async function sessionCookieOptions() {
+  const headerList = await headers();
+  const forwarded = headerList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const origin = headerList.get("origin") ?? "";
+  const https = forwarded === "https" || origin.startsWith("https://");
+  if (https) {
+    return {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none" as const,
+      partitioned: true,
+      path: "/",
+      maxAge: SESSION_SECONDS,
+    };
+  }
+  return {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: SESSION_SECONDS,
+  };
+}
 
 export async function createSession(userId: number): Promise<void> {
   const token = randomBytes(32).toString("hex");
@@ -25,13 +51,7 @@ export async function createSession(userId: number): Promise<void> {
     )
     .run(token, userId, expiresAt);
   const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_SECONDS,
-  });
+  jar.set(COOKIE, token, await sessionCookieOptions());
 }
 
 export async function destroySession(): Promise<void> {
@@ -40,13 +60,12 @@ export async function destroySession(): Promise<void> {
   if (token) {
     getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
   }
-  jar.delete(COOKIE);
+  const options = await sessionCookieOptions();
+  jar.set(COOKIE, "", { ...options, maxAge: 0 });
 }
 
-export async function readSessionUser(): Promise<PublicUser | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
-  if (!token) return null;
+function userForToken(token: string): PublicUser | null {
+  if (!TOKEN_RE.test(token)) return null;
   const row = getDb()
     .prepare(
       `SELECT users.id AS id, users.username AS username, sessions.expires_at AS expires_at
@@ -57,7 +76,23 @@ export async function readSessionUser(): Promise<PublicUser | null> {
     .get(token) as SessionRow | undefined;
   if (!row) return null;
   if (Number(row.expires_at) < Date.now()) return null;
-  return { id: Number(row.id), username: String(row.username) };
+  return { id: Number(row.id), username: String(row.username), token };
+}
+
+export async function readSessionUser(
+  fallbackToken?: string | null,
+): Promise<PublicUser | null> {
+  const jar = await cookies();
+  const tokens = jar
+    .getAll()
+    .filter((cookie) => cookie.name === COOKIE)
+    .map((cookie) => cookie.value);
+  if (fallbackToken) tokens.push(fallbackToken);
+  for (const token of tokens) {
+    const user = userForToken(token);
+    if (user) return user;
+  }
+  return null;
 }
 
 export async function getCurrentUser(): Promise<PublicUser> {

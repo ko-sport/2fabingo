@@ -19,6 +19,7 @@ async function BoardGate() {
   return (
     <BoardApp
       username={user.username}
+      sessionToken={user.token}
       initialMarks={marks}
       initialRecent={recent}
     />

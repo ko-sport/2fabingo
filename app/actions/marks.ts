@@ -35,8 +35,9 @@ function groupEntries(entries: DaubEntry[]): Map<number, number> | string {
 
 export async function daubManyAction(
   entries: DaubEntry[],
+  sessionToken?: string,
 ): Promise<{ counts: [number, number][] } | { error: string }> {
-  const user = await readSessionUser();
+  const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
   const grouped = groupEntries(entries);
   if (typeof grouped === "string") return { error: grouped };
@@ -47,19 +48,22 @@ export async function daubManyAction(
   }
 }
 
-export async function reloadMarksAction(): Promise<
+export async function reloadMarksAction(
+  sessionToken?: string,
+): Promise<
   | { marks: [number, number][]; recent: { code: number; count: number }[] }
   | { error: string }
 > {
-  const user = await readSessionUser();
+  const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
   return { marks: listMarks(user.id), recent: listRecent(user.id) };
 }
 
 export async function importMarksAction(
   marks: [number, number][],
+  sessionToken?: string,
 ): Promise<{ total: number } | { error: string }> {
-  const user = await readSessionUser();
+  const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to import a card." };
   if (!Array.isArray(marks) || marks.length > 1_000_000) {
     return { error: "That file isn’t a bingo card." };

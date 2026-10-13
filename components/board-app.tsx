@@ -35,26 +35,34 @@ type Cell = { row: number; col: number };
 
 export function BoardApp({
   username,
+  sessionToken,
   initialMarks,
   initialRecent,
 }: {
   username: string;
+  sessionToken: string;
   initialMarks: [number, number][];
   initialRecent: Recent[];
 }) {
   const [store] = useState(() => new CardStore(initialMarks));
   return (
     <CardStoreProvider store={store}>
-      <BoardShell username={username} initialRecent={initialRecent} />
+      <BoardShell
+        username={username}
+        sessionToken={sessionToken}
+        initialRecent={initialRecent}
+      />
     </CardStoreProvider>
   );
 }
 
 function BoardShell({
   username,
+  sessionToken,
   initialRecent,
 }: {
   username: string;
+  sessionToken: string;
   initialRecent: Recent[];
 }) {
   const store = useCardStore();
@@ -135,11 +143,12 @@ function BoardShell({
               code: formatCode(code),
               delta,
             })),
+            sessionToken,
           );
           if ("error" in result) {
             toast.error(result.error);
             if (my === epoch.current) {
-              const fresh = await reloadMarksAction();
+              const fresh = await reloadMarksAction(sessionToken);
               if (!("error" in fresh) && my === epoch.current) {
                 silent.current = true;
                 store.hydrate(fresh.marks);
@@ -155,7 +164,7 @@ function BoardShell({
           toast.error("Couldn’t save that daub.");
           if (my === epoch.current) {
             try {
-              const fresh = await reloadMarksAction();
+              const fresh = await reloadMarksAction(sessionToken);
               if (!("error" in fresh) && my === epoch.current) {
                 silent.current = true;
                 store.hydrate(fresh.marks);
@@ -170,7 +179,7 @@ function BoardShell({
         }
       });
     },
-    [remember, reveal, store],
+    [remember, reveal, sessionToken, store],
   );
 
   useEffect(() => {
@@ -265,13 +274,13 @@ function BoardShell({
     setSaving((count) => count + 1);
     chain.current = chain.current.then(async () => {
       try {
-        const result = await importMarksAction(marks);
+        const result = await importMarksAction(marks, sessionToken);
         if ("error" in result) {
           toast.error(result.error);
           return;
         }
         if (my !== epoch.current) return;
-        const fresh = await reloadMarksAction();
+        const fresh = await reloadMarksAction(sessionToken);
         if ("error" in fresh) {
           toast.error(fresh.error);
           return;

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { needsPartitionedCookies } from "@/lib/cookie-policy";
 import { getDb } from "@/lib/db";
 
 const COOKIE = "bingo_session";
@@ -21,6 +22,7 @@ export type PendingAuth = {
   userId: number;
   purpose: "enroll" | "login";
   username: string;
+  token: string;
 };
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
@@ -34,10 +36,13 @@ type SessionRow = {
 
 async function sessionCookieOptions() {
   const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const origin = headerList.get("origin") ?? "";
-  const https = forwarded === "https" || origin.startsWith("https://");
-  if (https) {
+  const remote = needsPartitionedCookies({
+    host: headerList.get("host"),
+    forwardedHost: headerList.get("x-forwarded-host"),
+    forwardedProto: headerList.get("x-forwarded-proto"),
+    origin: headerList.get("origin"),
+  });
+  if (remote) {
     return {
       httpOnly: true,
       secure: true,
@@ -56,7 +61,7 @@ async function sessionCookieOptions() {
   };
 }
 
-export async function createSession(userId: number): Promise<void> {
+export async function createSession(userId: number): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = Date.now() + SESSION_SECONDS * 1000;
   getDb()
@@ -66,12 +71,17 @@ export async function createSession(userId: number): Promise<void> {
     .run(token, userId, expiresAt);
   const jar = await cookies();
   jar.set(COOKIE, token, await sessionCookieOptions());
+  return token;
 }
 
-export async function destroySession(): Promise<void> {
+export async function destroySession(explicit?: string | null): Promise<void> {
   const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
-  if (token) {
+  const tokens = new Set<string>();
+  if (explicit && TOKEN_RE.test(explicit)) tokens.add(explicit);
+  for (const cookie of jar.getAll()) {
+    if (cookie.name === COOKIE && TOKEN_RE.test(cookie.value)) tokens.add(cookie.value);
+  }
+  for (const token of tokens) {
     getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
   }
   const options = await sessionCookieOptions();
@@ -116,8 +126,8 @@ export async function readSessionUser(
   return null;
 }
 
-export async function getCurrentUser(): Promise<PublicUser> {
-  const user = await readSessionUser();
+export async function getCurrentUser(fallbackToken?: string | null): Promise<PublicUser> {
+  const user = await readSessionUser(fallbackToken);
   if (!user) redirect("/login");
   if (!user.totpConfirmed) redirect("/setup");
   return user;
@@ -130,7 +140,7 @@ export async function getOptionalUser(): Promise<PublicUser | null> {
 export async function beginPending(
   userId: number,
   purpose: "enroll" | "login",
-): Promise<void> {
+): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = Date.now() + PENDING_SECONDS * 1000;
   const db = getDb();
@@ -143,13 +153,11 @@ export async function beginPending(
     ...(await sessionCookieOptions()),
     maxAge: PENDING_SECONDS,
   });
+  return token;
 }
 
-export async function readPending(): Promise<PendingAuth | null> {
-  await connection();
-  const jar = await cookies();
-  const token = jar.get(PENDING)?.value;
-  if (!token || !TOKEN_RE.test(token)) return null;
+function pendingForToken(token: string): PendingAuth | null {
+  if (!TOKEN_RE.test(token)) return null;
   const row = getDb()
     .prepare(
       `SELECT pending_auth.user_id AS user_id, pending_auth.purpose AS purpose,
@@ -168,13 +176,33 @@ export async function readPending(): Promise<PendingAuth | null> {
     userId: Number(row.user_id),
     purpose: row.purpose,
     username: String(row.username),
+    token,
   };
 }
 
-export async function clearPending(): Promise<void> {
+export async function readPending(explicit?: string | null): Promise<PendingAuth | null> {
+  await connection();
   const jar = await cookies();
-  const token = jar.get(PENDING)?.value;
-  if (token) {
+  const tokens: string[] = [];
+  if (explicit) tokens.push(explicit);
+  for (const cookie of jar.getAll()) {
+    if (cookie.name === PENDING && !tokens.includes(cookie.value)) tokens.push(cookie.value);
+  }
+  for (const token of tokens) {
+    const pending = pendingForToken(token);
+    if (pending) return pending;
+  }
+  return null;
+}
+
+export async function clearPending(explicit?: string | null): Promise<void> {
+  const jar = await cookies();
+  const tokens = new Set<string>();
+  if (explicit && TOKEN_RE.test(explicit)) tokens.add(explicit);
+  for (const cookie of jar.getAll()) {
+    if (cookie.name === PENDING && TOKEN_RE.test(cookie.value)) tokens.add(cookie.value);
+  }
+  for (const token of tokens) {
     getDb().prepare("DELETE FROM pending_auth WHERE token = ?").run(token);
   }
   jar.set(PENDING, "", { ...(await sessionCookieOptions()), maxAge: 0 });

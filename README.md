@@ -39,7 +39,7 @@ On the set and on a block, a square’s green is how much of it is already regis
 
 A password is not enough. After you create an account, the next screen shows a QR code and a secret for an authenticator app (the same kind of six-digit codes this card is for). Enter the code the app is showing to confirm the pairing. That confirming code is daubed on your card.
 
-The next time you log in, the password step is followed by another authenticator code. The first successful code each UTC day is daubed for you, even if that square already has a count. Later logins the same day do not add another daub. A code from the previous or next 30-second step still counts.
+The next time you log in, the password step is followed by another authenticator code. That authenticator screen stays up until the code is accepted. The sign-in carries a short-lived ticket on the address so a browser that drops the cookie (some embedded previews do) does not send you back to the password. After the code works, the card opens with the session on its address as well. The first successful code each UTC day is daubed for you, even if that square already has a count. Later logins the same day do not add another daub. A code from the previous or next 30-second step still counts.
 
 If you already had an account before authenticator login, the next visit sends you to the pairing screen before the card opens.
 

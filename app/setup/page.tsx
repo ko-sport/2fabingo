@@ -7,7 +7,18 @@ import { createSecret, formatSecret, qrDataUrl } from "@/lib/totp";
 import { AuthShell } from "@/components/auth-shell";
 import { TotpForm } from "@/components/totp-form";
 
-export default function SetupPage() {
+type Search = { ticket?: string | string[] };
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+export default function SetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
   return (
     <Suspense
       fallback={
@@ -16,7 +27,7 @@ export default function SetupPage() {
         </AuthShell>
       }
     >
-      <SetupGate />
+      <SetupGate searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -38,9 +49,10 @@ function ensureSecret(userId: number): { username: string; secret: string } {
   return { username: row.username, secret: again.totp_secret };
 }
 
-async function SetupGate() {
+async function SetupGate({ searchParams }: { searchParams: Promise<Search> }) {
+  const ticket = firstParam((await searchParams).ticket);
   const session = await readSessionUser();
-  const pending = await readPending();
+  const pending = await readPending(ticket);
   if (session?.totpConfirmed) redirect("/board");
 
   const userId =
@@ -79,6 +91,7 @@ async function SetupGate() {
       <div className="mt-6">
         <TotpForm
           action={enrollAction}
+          ticket={pending?.token ?? ""}
           submit="Confirm and open the card"
           hint="Enter the six digits the app is showing right now."
         />

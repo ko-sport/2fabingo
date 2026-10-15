@@ -91,8 +91,8 @@ export async function registerAction(
       "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed) VALUES (?, ?, ?, 0)",
     )
     .run(username, passwordHash, secret);
-  await beginPending(Number(result.lastInsertRowid), "enroll");
-  redirect("/setup");
+  const ticket = await beginPending(Number(result.lastInsertRowid), "enroll");
+  redirect(`/setup?ticket=${ticket}`);
 }
 
 export async function loginAction(
@@ -117,20 +117,21 @@ export async function loginAction(
 
   if (!row.totp_secret || Number(row.totp_confirmed) !== 1) {
     ensureSecret(Number(row.id));
-    await beginPending(Number(row.id), "enroll");
-    redirect("/setup");
+    const ticket = await beginPending(Number(row.id), "enroll");
+    redirect(`/setup?ticket=${ticket}`);
   }
 
-  await beginPending(Number(row.id), "login");
-  redirect("/login/code");
+  const ticket = await beginPending(Number(row.id), "login");
+  redirect(`/login/code?ticket=${ticket}`);
 }
 
 export async function enrollAction(
   _state: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const ticket = String(formData.get("ticket") ?? "");
+  const pending = await readPending(ticket);
   const session = await readSessionUser();
-  const pending = await readPending();
   const userId = session && !session.totpConfirmed ? session.id : pending?.purpose === "enroll" ? pending.userId : null;
   if (userId === null) redirect("/login");
 
@@ -148,17 +149,18 @@ export async function enrollAction(
     .run(user.id);
   const code = parseCode(digits);
   if (code !== null) claimDailyFreebie(user.id, code);
-  await clearPending();
-  if (session) await destroySession();
-  await createSession(user.id);
-  redirect("/board");
+  await clearPending(pending?.token ?? ticket);
+  if (session) await destroySession(session.token);
+  const token = await createSession(user.id);
+  redirect(`/board?session=${token}`);
 }
 
 export async function loginCodeAction(
   _state: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const pending = await readPending();
+  const ticket = String(formData.get("ticket") ?? "");
+  const pending = await readPending(ticket);
   if (!pending || pending.purpose !== "login") redirect("/login");
   const user = loadUser(pending.userId);
   if (!user?.totp_secret || Number(user.totp_confirmed) !== 1) redirect("/setup");
@@ -167,13 +169,13 @@ export async function loginCodeAction(
   if (!finishLogin(user.id, user.totp_secret, user.username, digits)) {
     return { error: "That code doesn’t match. Wait for a fresh one and try again." };
   }
-  await clearPending();
-  await createSession(user.id);
-  redirect("/board");
+  await clearPending(pending.token);
+  const token = await createSession(user.id);
+  redirect(`/board?session=${token}`);
 }
 
-export async function logoutAction(): Promise<void> {
-  await destroySession();
+export async function logoutAction(formData: FormData): Promise<void> {
+  await destroySession(String(formData.get("session") ?? ""));
   await clearPending();
   redirect("/");
 }

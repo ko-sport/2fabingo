@@ -5,7 +5,18 @@ import { readPending } from "@/lib/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { TotpForm } from "@/components/totp-form";
 
-export default function LoginCodePage() {
+type Search = { ticket?: string | string[] };
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+export default function LoginCodePage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
   return (
     <Suspense
       fallback={
@@ -14,13 +25,14 @@ export default function LoginCodePage() {
         </AuthShell>
       }
     >
-      <CodeGate />
+      <CodeGate searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function CodeGate() {
-  const pending = await readPending();
+async function CodeGate({ searchParams }: { searchParams: Promise<Search> }) {
+  const ticket = firstParam((await searchParams).ticket);
+  const pending = await readPending(ticket);
   if (!pending || pending.purpose !== "login") redirect("/login");
   return (
     <AuthShell
@@ -29,6 +41,7 @@ async function CodeGate() {
     >
       <TotpForm
         action={loginCodeAction}
+        ticket={pending.token}
         submit="Open the card"
         hint="It changes every 30 seconds. A code from the previous or next step still counts."
       />

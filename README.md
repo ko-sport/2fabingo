@@ -1,6 +1,6 @@
 # 2FA Bingo
 
-A million-square bingo card for the six-digit codes you collect through the day. Type `250417` or open card 25 and click row 04, column 17. Daub the same code again and the square shows `2×`, `3×`, and a deeper green.
+A million-square bingo card for the six-digit codes you collect through the day. You only ever see one 10×10 grid. Type `250417` and press Find to open `250400–250500`, then click `250417` to register it. Register it again and that square goes a darker green.
 
 Create an account, pair an authenticator, and the card is still there when you come back. The code that signs you in is daubed once each day.
 
@@ -17,30 +17,21 @@ Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
 npm test
 ```
 
-## Where a code sits
+## Three grids
 
-A code `ABCDEF` is three pairs:
+Only one grid is on screen.
 
-| Digits | Meaning |
-| --- | --- |
-| `AB` | Card `00`–`99`, laid out in a 10×10 wall |
-| `CD` | Row `00`–`99` on that card |
-| `EF` | Column `00`–`99` |
+| Grid | What a square holds | Example |
+| --- | --- | --- |
+| The set | 10,000 codes | `000000–010000` |
+| A block | 100 codes | `000000–000100` |
+| A hundred | one code | `000042` |
 
-`250417` is card 25, row 04, column 17. There are 100 cards and each card is 100×100, so the wall covers `000000` through `999999`.
+`250417` is in the block `250000–260000`, the hundred `250400–250500`, and the square `250417`.
 
-## Calls
+**Find** opens that hundred and does not register the code. Click the square to register it. Click it again for `2×`, `3×`, and a darker green. Right-click, or **Remove one**, takes a registration back.
 
-Lines run left to right. A square counts once it has been daubed at least once.
-
-- **Mini-line** — 100 squares in one row of a card
-- **Five-stack** — five mini-lines, one under the next, on the same card
-- **Mini-house** — all 10,000 squares on one card
-- **Full line** — all ten cards in a horizontal band, each one a mini-house
-- **Double line** — two full lines, one band under the other
-- **Full house** — all 1,000,000 squares
-
-Click a square to daub it. Right-click, or **Remove one**, takes a daub back. Paste several codes at once if you have a list.
+On the set and on a block, a square’s green is how much of it is already registered. A full hundred, a full block of 10,000, and the full set each get a stamp.
 
 **Export** downloads your card as JSON. **Import** replaces the card with that file.
 

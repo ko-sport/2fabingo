@@ -43,6 +43,8 @@ export type Analysis = {
   closestHouse: ClosestHouse | null;
   closestFullLine: ClosestFullLine | null;
   closestDouble: ClosestDouble | null;
+  /** How many of the 100 codes in each hundred are registered. Index is block * 100 + page. */
+  pageFill: Uint16Array;
 };
 
 export type CallId =
@@ -213,6 +215,7 @@ export function analyze(marks: Iterable<[number, number]>): Analysis {
     closestHouse,
     closestFullLine,
     closestDouble,
+    pageFill: rowFill,
   };
 }
 

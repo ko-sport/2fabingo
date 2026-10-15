@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CALLS } from "@/lib/calls";
 import { AuthNav } from "@/components/auth-nav";
-import { CallGlyph } from "@/components/call-glyph";
 import { SampleCard } from "@/components/sample-card";
 import { Wordmark } from "@/components/wordmark";
 
@@ -24,12 +22,12 @@ export default function HomePage() {
             A card for codes
           </p>
           <h1 className="mt-3 max-w-xl font-heading text-5xl leading-[0.95] text-[#10241c] sm:text-6xl">
-            One million squares. One free code a day.
+            One million squares. One grid at a time.
           </h1>
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-[#3d5246]">
-            Sign in with an authenticator. The six digits that let you in are
-            daubed for you, once each day. Every other code you collect, from
-            000000 to 999999, has a square too.
+            Type a code and the card opens on that hundred. Click the square to
+            register it. Or start from the full set and click inward: 10,000
+            codes, then a hundred, then the number.
           </p>
           <div className="mt-8">
             <Suspense fallback={<div className="h-11 w-48" />}>
@@ -37,22 +35,18 @@ export default function HomePage() {
             </Suspense>
           </div>
 
-          <ol className="mt-10 grid gap-3 sm:grid-cols-2">
-            {CALLS.map((call, index) => (
-              <li
-                key={call.id}
-                className="ticket flex items-center gap-3 rounded-xl px-3 py-2"
-              >
-                <CallGlyph kind={call.glyph} />
-                <div>
-                  <p className="font-heading text-lg leading-none text-[#14211b]">
-                    <span className="mr-2 font-mono text-xs text-[#6b7f72]">
-                      0{index + 1}
-                    </span>
-                    {call.name}
-                  </p>
-                  <p className="mt-1 text-sm text-[#4d6156]">{call.summary}</p>
-                </div>
+          <ol className="mt-10 grid gap-3">
+            {[
+              ["The set", "100 squares, from 000000–010000 to 990000–1000000."],
+              ["A block", "100 pages of a hundred codes, 000000–000100 onward."],
+              ["A hundred", "The exact numbers. Click one to register it."],
+            ].map(([name, summary], index) => (
+              <li key={name} className="ticket rounded-xl px-4 py-3">
+                <p className="font-heading text-lg leading-none text-[#14211b]">
+                  <span className="mr-2 font-mono text-xs text-[#6b7f72]">0{index + 1}</span>
+                  {name}
+                </p>
+                <p className="mt-1 text-sm text-[#4d6156]">{summary}</p>
               </li>
             ))}
           </ol>
@@ -63,9 +57,8 @@ export default function HomePage() {
       <section className="ticket mb-8 rounded-2xl p-5 sm:p-6">
         <h2 className="font-heading text-2xl">Where a code sits</h2>
         <p className="mt-2 max-w-2xl text-sm text-[#4d6156]">
-          The wall is 100 cards, 00 to 99, ten across. Each card is 100 rows by
-          100 columns. A code reads as card, row, column. The code you use to
-          log in lands on that square the first time you sign in each day.
+          250417 is inside 250000–260000, then inside 250400–250500, then it is
+          the square itself. Find opens that hundred. The click registers it.
         </p>
         <p className="mt-4 font-mono text-3xl tracking-[0.22em] sm:text-4xl">
           <span className="text-[#c47b14]">25</span>

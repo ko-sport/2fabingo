@@ -1,5 +1,3 @@
-import { CELLS_PER_CARD } from "@/lib/codes";
-
 function mix(
   from: [number, number, number],
   to: [number, number, number],
@@ -27,13 +25,16 @@ export function daubStyle(count: number): { background: string; color: string } 
   };
 }
 
-export function cardTabStyle(
+/** Shade a block or a hundred by how much of it is registered. Any progress is visibly green. */
+export function coverageStyle(
   filled: number,
-  house: boolean,
+  total: number,
 ): { background: string; color: string } {
-  if (house) return { background: "#0c3d28", color: "#f4f7f2" };
-  if (filled <= 0) return { background: "#e7f2ea", color: "#4d6156" };
-  const t = Math.sqrt(Math.min(1, filled / CELLS_PER_CARD));
-  const background = mix([231, 242, 234], [15, 92, 56], t);
-  return { background, color: t > 0.62 ? "#f4f7f2" : "#1c1712" };
+  if (filled <= 0 || total <= 0) {
+    return { background: "#e7f2ea", color: "#3d5246" };
+  }
+  if (filled >= total) return { background: "#0c3d28", color: "#f4f7f2" };
+  const t = Math.min(1, 0.22 + 0.78 * Math.sqrt(filled / total));
+  const background = mix([231, 242, 234], [12, 61, 40], t);
+  return { background, color: t > 0.62 ? "#f4f7f2" : "#14211b" };
 }

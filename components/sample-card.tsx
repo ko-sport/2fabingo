@@ -17,8 +17,8 @@ export function SampleCard() {
     <div className="relative mx-auto w-full max-w-[340px] rotate-[-2.5deg]">
       <div className="paper-card rounded-2xl p-4">
         <div className="mb-3 flex items-baseline justify-between">
-          <p className="font-heading text-xl text-[#1c1712]">Card 25</p>
-          <p className="font-mono text-xs text-[#6e6458]">row 04</p>
+          <p className="font-heading text-xl text-[#14211b]">Card 25</p>
+          <p className="font-mono text-xs text-[#6b7f72]">row 04</p>
         </div>
         <div
           className="grid gap-px"

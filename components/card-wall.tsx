@@ -29,7 +29,7 @@ export const CardWall = memo(function CardWall({
             onClick={() => onSelect(card)}
             className={cn(
               "relative aspect-square rounded-[4px] font-mono text-[10px] leading-none font-medium tabular-nums sm:text-[11px]",
-              active && "z-10 ring-2 ring-[#1c1712] ring-offset-2 ring-offset-[#f6f0e4]",
+              active && "z-10 ring-2 ring-[#10241c] ring-offset-2 ring-offset-[#f7fbf8]",
             )}
             style={{ background: style.background, color: style.color }}
           >

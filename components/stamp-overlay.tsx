@@ -21,7 +21,7 @@ export function StampOverlay({
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-6">
-      <div className="stamp-pop max-w-md rounded-full border-[6px] border-[#c5341a] bg-[#f6f0e4]/90 px-8 py-5 text-center text-[#c5341a] shadow-2xl">
+      <div className="stamp-pop max-w-md rounded-full border-[6px] border-[#c5341a] bg-[#f7fbf8]/95 px-8 py-5 text-center text-[#c5341a] shadow-2xl">
         <p className="font-heading text-4xl tracking-[0.16em] uppercase sm:text-5xl">
           {STAMP_LABEL[event.id]}
         </p>

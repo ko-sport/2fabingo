@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { listMarks, listRecent } from "@/lib/marks-data";
+import { listMarks, listRecent, todaysFreebie } from "@/lib/marks-data";
 import { BoardApp } from "@/components/board-app";
 import { BoardFallback } from "@/components/board-fallback";
 
@@ -20,6 +20,7 @@ async function BoardGate() {
     <BoardApp
       username={user.username}
       sessionToken={user.token}
+      freebieCode={todaysFreebie(user.id)}
       initialMarks={marks}
       initialRecent={recent}
     />

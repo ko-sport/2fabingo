@@ -1,17 +1,17 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { registerAction } from "@/app/actions/auth";
 import { getOptionalUser } from "@/lib/auth";
 import { AuthForm } from "@/components/auth-form";
-import { Wordmark } from "@/components/wordmark";
+import { AuthShell } from "@/components/auth-shell";
 
 export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto w-full max-w-md px-5 py-8">
-          <p className="font-heading text-3xl text-[#f4efe4]">Start a card</p>
-        </div>
+        <AuthShell title="Start a card" lede="Setting a place for your squares.">
+          <div className="h-48" />
+        </AuthShell>
       }
     >
       <RegisterGate />
@@ -21,20 +21,14 @@ export default function RegisterPage() {
 
 async function RegisterGate() {
   const user = await getOptionalUser();
-  if (user) redirect("/board");
+  if (user?.totpConfirmed) redirect("/board");
+  if (user) redirect("/setup");
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 py-8">
-      <Link href="/" className="text-2xl text-[#f4efe4]">
-        <Wordmark />
-      </Link>
-      <div className="paper-card mt-10 rounded-2xl p-6">
-        <h1 className="font-heading text-4xl">Start a card</h1>
-        <p className="mt-2 mb-6 text-sm text-muted-foreground">
-          Pick a username. The million squares wait under it, and they stay
-          when you come back.
-        </p>
-        <AuthForm mode="register" />
-      </div>
-    </div>
+    <AuthShell
+      title="Start a card"
+      lede="Pick a username and password. Next you’ll pair an authenticator, and the code that confirms it is your first free square."
+    >
+      <AuthForm mode="register" action={registerAction} />
+    </AuthShell>
   );
 }

@@ -97,7 +97,7 @@ export function MiniGrid({
       Math.ceil((scrollTop + height - header) / size),
     );
 
-    ctx.fillStyle = "#e7dfd0";
+    ctx.fillStyle = "#d7e6dc";
     ctx.fillRect(0, 0, width, height);
 
     const fontSize = Math.max(9, Math.min(13, size * 0.42));
@@ -136,7 +136,7 @@ export function MiniGrid({
       hover &&
       (!active || hover.row !== active.row || hover.col !== active.col)
     ) {
-      ring(hover, "#1c1712", size >= 16 ? 2 : 1);
+      ring(hover, "#10241c", size >= 16 ? 2 : 1);
     }
     if (active) ring(active, "#c5341a", size >= 16 ? 2 : 1);
 
@@ -146,22 +146,22 @@ export function MiniGrid({
       if (pulseCard === card) {
         const row = Math.floor((pulse.code % 10_000) / 100);
         const col = pulse.code % 100;
-        ring({ row, col }, "#f4efe4", 3);
+        ring({ row, col }, "#ffffff", 3);
       }
     }
 
-    ctx.fillStyle = "#f6f0e4";
+    ctx.fillStyle = "#f4faf6";
     ctx.fillRect(0, 0, width, header);
     ctx.fillRect(0, 0, header, height);
     ctx.font = `500 ${header >= 26 ? 10 : 8}px ui-monospace, monospace`;
-    ctx.fillStyle = "#6b6258";
+    ctx.fillStyle = "#4d6156";
     for (let col = firstCol; col <= lastCol; col++) {
       if (size < 14 && col % 10 !== 0) continue;
       const sx = header + col * size - scrollLeft;
       if (sx + size < header) continue;
       const marked =
         (active && active.col === col) || (hover && hover.col === col);
-      ctx.fillStyle = marked ? "#1c1712" : "#6b6258";
+      ctx.fillStyle = marked ? "#14211b" : "#4d6156";
       ctx.fillText(pad2(col), sx + size / 2, header / 2);
     }
     for (let row = firstRow; row <= lastRow; row++) {
@@ -170,12 +170,12 @@ export function MiniGrid({
       if (sy + size < header) continue;
       const marked =
         (active && active.row === row) || (hover && hover.row === row);
-      ctx.fillStyle = marked ? "#1c1712" : "#6b6258";
+      ctx.fillStyle = marked ? "#14211b" : "#4d6156";
       ctx.fillText(pad2(row), header / 2, sy + size / 2);
     }
-    ctx.fillStyle = "#efe6d4";
+    ctx.fillStyle = "#e7f3ea";
     ctx.fillRect(0, 0, header, header);
-    ctx.strokeStyle = "#d9cbb3";
+    ctx.strokeStyle = "#c5d6c9";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, header + 0.5);
@@ -199,7 +199,9 @@ export function MiniGrid({
     const scroller = scrollerRef.current;
     if (!scroller) return;
     let frame = 0;
+    let cancelled = false;
     const attempt = () => {
+      if (cancelled) return;
       if (scroller.clientHeight < 2 || scroller.clientWidth < 2) return;
       scrolledNonce.current = nonce;
       const left =
@@ -219,10 +221,14 @@ export function MiniGrid({
       });
       observer.disconnect();
     };
-    const observer = new ResizeObserver(attempt);
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(attempt);
+    });
     observer.observe(scroller);
     frame = requestAnimationFrame(attempt);
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
@@ -265,10 +271,10 @@ export function MiniGrid({
 
   return (
       <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-[#e4dcc8] px-3 py-2">
-        <p className="font-heading text-lg text-[#1c1712]">Card {pad2(card)}</p>
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#c5d6c9] px-3 py-2">
+        <p className="font-heading text-lg text-[#14211b]">Card {pad2(card)}</p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-[#6e6458]">
+          <label className="flex items-center gap-2 text-xs text-[#4d6156]">
             Square size
             <input
               type="range"
@@ -334,7 +340,7 @@ export function MiniGrid({
           }
         }}
         onScroll={() => drawRef.current()}
-        className="relative min-h-0 flex-1 overflow-auto overscroll-contain bg-[#e7dfd0] outline-none focus-visible:ring-2 focus-visible:ring-[#146b43] focus-visible:ring-inset"
+        className="relative min-h-0 flex-1 overflow-auto overscroll-contain bg-[#d7e6dc] outline-none focus-visible:ring-2 focus-visible:ring-[#0f6b3c] focus-visible:ring-inset"
       >
         <div style={{ width: content, height: content }}>
           <canvas

@@ -25,7 +25,7 @@ export function CallGlyph({
               key={index}
               className={cn(
                 "aspect-square rounded-[1px]",
-                on ? "bg-[#1b6b45]" : "bg-[#e4dcc8]",
+                on ? "bg-[#1b6b45]" : "bg-[#d7e6dc]",
               )}
             />
           );
@@ -47,7 +47,7 @@ export function CallGlyph({
             key={index}
             className={cn(
               "aspect-square rounded-[1px]",
-              on ? "bg-[#1b6b45]" : "bg-[#e4dcc8]",
+              on ? "bg-[#1b6b45]" : "bg-[#d7e6dc]",
             )}
           />
         );

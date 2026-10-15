@@ -44,6 +44,11 @@ export function RulesDialog() {
           shows 2×, 3×, and a deeper green. Right-click, or Remove one, takes a
           daub back. Lines run left to right.
         </p>
+        <p className="text-sm text-muted-foreground">
+          Logging in takes a code from your authenticator. The first successful
+          code each day is daubed for you. Later logins the same day leave that
+          square as it is.
+        </p>
       </DialogContent>
     </Dialog>
   );

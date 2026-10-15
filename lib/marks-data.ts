@@ -85,6 +85,54 @@ export function applyGrouped(
   return out;
 }
 
+export function utcDay(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+export function claimDailyFreebie(userId: number, code: number): boolean {
+  if (!Number.isInteger(code) || code < 0 || code > 999999) return false;
+  const today = utcDay();
+  const db = getDb();
+  const upsert = db.prepare(
+    `INSERT INTO marks (user_id, code, count, updated_at)
+     VALUES (?, ?, 1, datetime('now'))
+     ON CONFLICT(user_id, code) DO UPDATE SET
+       count = MIN(${MAX_COUNT}, count + 1),
+       updated_at = datetime('now')`,
+  );
+  const read = db.prepare(
+    "SELECT freebie_on FROM users WHERE id = ?",
+  );
+  const stamp = db.prepare(
+    "UPDATE users SET freebie_on = ?, freebie_code = ? WHERE id = ?",
+  );
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const row = read.get(userId) as { freebie_on: string | null } | undefined;
+    if (!row || row.freebie_on === today) {
+      db.exec("COMMIT");
+      return false;
+    }
+    upsert.run(userId, code);
+    stamp.run(today, code, userId);
+    db.exec("COMMIT");
+    return true;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function todaysFreebie(userId: number): number | null {
+  const row = getDb()
+    .prepare(
+      "SELECT freebie_on, freebie_code FROM users WHERE id = ?",
+    )
+    .get(userId) as { freebie_on: string | null; freebie_code: number | null } | undefined;
+  if (!row || row.freebie_on !== utcDay() || row.freebie_code == null) return null;
+  return Number(row.freebie_code);
+}
+
 export function replaceMarks(userId: number, marks: [number, number][]) {
   const db = getDb();
   const removeAll = db.prepare("DELETE FROM marks WHERE user_id = ?");

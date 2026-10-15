@@ -119,7 +119,7 @@ export const Achievements = memo(function Achievements() {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h2 className="font-heading text-xl text-[#1c1712]">Calls</h2>
+        <h2 className="font-heading text-xl text-[#14211b]">Calls</h2>
         <p className="text-sm text-muted-foreground">
           Lines run left to right. A square counts once it has been daubed.
         </p>
@@ -133,7 +133,7 @@ export const Achievements = memo(function Achievements() {
           return (
             <li
               key={call.id}
-              className="rounded-xl border border-[#e4dcc8] bg-[#fbf7ef] p-3"
+              className="rounded-xl border border-[#c5d6c9] bg-[#f4faf6] p-3"
             >
               <div className="flex gap-3">
                 <CallGlyph kind={call.glyph} className="mt-0.5 shrink-0" />
@@ -144,32 +144,32 @@ export const Achievements = memo(function Achievements() {
                       className={
                         called
                           ? "font-mono text-[11px] tracking-wide text-[#146b43] uppercase"
-                          : "font-mono text-[11px] tracking-wide text-[#8a8174] uppercase"
+                          : "font-mono text-[11px] tracking-wide text-[#6b7f72] uppercase"
                       }
                     >
                       {called ? "Called" : "Open"}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-[#5c5348]">{call.summary}</p>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e4dcc8]">
+                  <p className="mt-1 text-sm text-[#4d6156]">{call.summary}</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#d7e6dc]">
                     <div
                       className="h-full rounded-full bg-[#1b6b45]"
                       style={{ width: `${width}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-[#6e6458]">
+                  <p className="mt-1 text-xs text-[#6b7f72]">
                     {meter.label}
                     {meter.max <= 100
                       ? ` · ${Math.min(meter.value, meter.max)}/${meter.max}`
                       : ""}
                   </p>
                   {notes.length > 0 ? (
-                    <ul className="mt-2 flex flex-col gap-0.5 font-mono text-[11px] text-[#1c1712]">
+                    <ul className="mt-2 flex flex-col gap-0.5 font-mono text-[11px] text-[#14211b]">
                       {notes.map((note) => (
                         <li key={note}>{note}</li>
                       ))}
                       {call.id === "mini-line" && analysis.miniLines.length > 3 ? (
-                        <li className="text-[#6e6458]">
+                        <li className="text-[#6b7f72]">
                           and {(analysis.miniLines.length - 3).toLocaleString()} more
                         </li>
                       ) : null}

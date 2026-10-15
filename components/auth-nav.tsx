@@ -35,8 +35,8 @@ export async function AuthNav({ prominent = false }: { prominent?: boolean }) {
           variant: "outline",
           size: prominent ? "lg" : "default",
           className: prominent
-            ? "h-11 border-[#d9cbb3]/30 bg-transparent px-5 text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]"
-            : "border-[#d9cbb3]/30 bg-transparent text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]",
+            ? "h-11 border-[#c5d6c9] bg-[#f7fbf8] px-5 text-[#14211b] hover:bg-[#e7f3ea]"
+            : "border-[#c5d6c9] bg-[#f7fbf8] text-[#14211b] hover:bg-[#e7f3ea]",
         })}
       >
         Log in

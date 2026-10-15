@@ -2,17 +2,22 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { loginAction, registerAction, type AuthState } from "@/app/actions/auth";
+import type { AuthState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initial: AuthState = {};
 
-export function AuthForm({ mode }: { mode: "login" | "register" }) {
-  const action = mode === "login" ? loginAction : registerAction;
+export function AuthForm({
+  mode,
+  action,
+}: {
+  mode: "login" | "register";
+  action: (state: AuthState, formData: FormData) => Promise<AuthState>;
+}) {
   const [state, formAction, pending] = useActionState(action, initial);
-  const submit = mode === "login" ? "Log in" : "Create account";
+  const submit = mode === "login" ? "Continue" : "Create account";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

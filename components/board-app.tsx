@@ -36,11 +36,13 @@ type Cell = { row: number; col: number };
 export function BoardApp({
   username,
   sessionToken,
+  freebieCode,
   initialMarks,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
+  freebieCode: number | null;
   initialMarks: [number, number][];
   initialRecent: Recent[];
 }) {
@@ -50,6 +52,7 @@ export function BoardApp({
       <BoardShell
         username={username}
         sessionToken={sessionToken}
+        freebieCode={freebieCode}
         initialRecent={initialRecent}
       />
     </CardStoreProvider>
@@ -59,10 +62,12 @@ export function BoardApp({
 function BoardShell({
   username,
   sessionToken,
+  freebieCode,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
+  freebieCode: number | null;
   initialRecent: Recent[];
 }) {
   const store = useCardStore();
@@ -308,26 +313,26 @@ function BoardShell({
 
   return (
     <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#2a241c] px-4 py-3">
-        <Link href="/" className="text-xl text-[#f4efe4]">
+      <header className="masthead flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <Link href="/" className="text-xl text-[#f4f7f2]">
           <Wordmark />
         </Link>
-        <p className="font-mono text-sm text-[#d9cbb3]" data-testid="filled-count">
+        <p className="font-mono text-sm text-[#c9ddd0]" data-testid="filled-count">
           {analysis.filled.toLocaleString()} / 1,000,000
-          <span className="text-[#8d8376]"> · {percent}</span>
-          <span className="text-[#8d8376]">
+          <span className="text-[#8eaa98]"> · {percent}</span>
+          <span className="text-[#8eaa98]">
             {" "}
             · {analysis.totalDaubs.toLocaleString()} daubs
           </span>
-          {saving > 0 ? <span className="text-[#8d8376]"> · saving</span> : null}
+          {saving > 0 ? <span className="text-[#8eaa98]"> · saving</span> : null}
         </p>
         <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-sm text-[#f4efe4]">{username}</span>
+          <span className="font-mono text-sm text-[#f4f7f2]">{username}</span>
           <form action={logoutAction}>
             <Button
               type="submit"
               variant="outline"
-              className="border-[#3c342b] bg-transparent text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]"
+              className="border-white/20 bg-transparent text-[#f4f7f2] hover:bg-white/10 hover:text-[#f4f7f2]"
             >
               Log out
             </Button>
@@ -335,11 +340,27 @@ function BoardShell({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
-        <aside className="contents lg:block lg:overflow-y-auto lg:border-r lg:border-[#2a241c]">
-          <div className="order-1 border-b border-[#2a241c] p-4 lg:border-[#2a241c]">
-            <div className="paper-card rounded-2xl p-4">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
+        <aside className="contents lg:block lg:overflow-y-auto lg:border-r lg:border-[#c5d6c9]">
+          <div className="order-1 border-b border-[#c5d6c9] p-4">
+            <div className="ticket rounded-2xl p-4">
               <CodeEntry onCodes={onCodes} />
+              {freebieCode !== null ? (
+                <p
+                  className="mt-3 rounded-lg bg-[#e5f6eb] px-3 py-2 text-sm text-[#0f5c36]"
+                  data-testid="freebie"
+                >
+                  Today’s freebie{" "}
+                  <span className="font-mono tracking-wide">
+                    {formatCode(freebieCode)}
+                  </span>{" "}
+                  was daubed when you logged in.
+                </p>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  The authenticator code you log in with is daubed once each day.
+                </p>
+              )}
               <ActiveSquare
                 code={activeCode}
                 onDaub={(delta) => {
@@ -350,13 +371,42 @@ function BoardShell({
             </div>
           </div>
           <div className="order-3 flex flex-col gap-6 p-4">
-            <div className="paper-card rounded-2xl p-4">
-              <Achievements />
-            </div>
             <section>
-              <h2 className="font-heading text-xl text-[#f4efe4]">Recent</h2>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="font-heading text-xl text-[#14211b]">Cards</h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCardsOpen((open) => !open)}
+                >
+                  {cardsOpen ? "Hide" : "Show"}
+                </Button>
+              </div>
+              {cardsOpen ? (
+                <>
+                  <CardWall
+                    selected={selected}
+                    onSelect={(card) => {
+                      setSelected(card);
+                      setCursor(null);
+                      setHover(null);
+                    }}
+                  />
+                  <p className="mt-2 text-xs text-[#4d6156]">
+                    Amber mark: a mini-line. Deep green: a mini-house.
+                  </p>
+                </>
+              ) : (
+                <p className="font-mono text-sm text-[#4d6156]">
+                  Showing card {pad2(selected)}
+                </p>
+              )}
+            </section>
+            <section className="ticket rounded-2xl p-4">
+              <h2 className="font-heading text-xl text-[#14211b]">Recent</h2>
               {recent.length === 0 ? (
-                <p className="mt-2 text-sm text-[#b7ad9e]">
+                <p className="mt-2 text-sm text-[#4d6156]">
                   Codes you daub show up here.
                 </p>
               ) : (
@@ -366,10 +416,10 @@ function BoardShell({
                       <button
                         type="button"
                         onClick={() => reveal(item.code)}
-                        className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left font-mono text-sm text-[#f4efe4] hover:bg-[#2a241c]"
+                        className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left font-mono text-sm text-[#14211b] hover:bg-[#e7f3ea]"
                       >
                         <span>{formatCode(item.code)}</span>
-                        <span className="text-[#b7ad9e]">
+                        <span className="text-[#4d6156]">
                           {item.count > 1 ? `${item.count}×` : "1×"}
                         </span>
                       </button>
@@ -378,20 +428,17 @@ function BoardShell({
                 </ul>
               )}
             </section>
+            <div className="ticket rounded-2xl p-4">
+              <Achievements />
+            </div>
             <div className="flex flex-wrap gap-2">
               <RulesDialog />
-              <Button
-                type="button"
-                variant="outline"
-                className="border-[#3c342b] bg-transparent text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]"
-                onClick={exportCard}
-              >
+              <Button type="button" variant="outline" onClick={exportCard}>
                 Export
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="border-[#3c342b] bg-transparent text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]"
                 onClick={() => fileRef.current?.click()}
               >
                 Import
@@ -412,40 +459,7 @@ function BoardShell({
         </aside>
 
         <main className="order-2 flex min-w-0 flex-1 flex-col lg:min-h-0">
-          <div className="order-2 shrink-0 border-b border-[#2a241c] px-4 py-3 lg:order-1">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="font-heading text-xl text-[#f4efe4]">Cards</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="border-[#3c342b] bg-transparent text-[#f4efe4] hover:bg-[#2a241c] hover:text-[#f4efe4]"
-                onClick={() => setCardsOpen((open) => !open)}
-              >
-                {cardsOpen ? "Hide cards" : "Show cards"}
-              </Button>
-            </div>
-            {cardsOpen ? (
-              <div className="max-w-[320px]">
-                <CardWall
-                  selected={selected}
-                  onSelect={(card) => {
-                    setSelected(card);
-                    setCursor(null);
-                    setHover(null);
-                  }}
-                />
-                <p className="mt-2 text-xs text-[#b7ad9e]">
-                  Amber mark: that card has a mini-line. Deep green: mini-house.
-                </p>
-              </div>
-            ) : (
-              <p className="font-mono text-sm text-[#d9cbb3]">
-                Showing card {pad2(selected)}
-              </p>
-            )}
-          </div>
-          <div className="paper-card relative order-1 m-3 flex h-[68vh] min-h-[420px] flex-col overflow-hidden rounded-2xl lg:order-2 lg:m-4 lg:h-auto lg:min-h-0 lg:flex-1">
+          <div className="ticket relative m-3 flex h-[68vh] min-h-[420px] flex-col overflow-hidden rounded-2xl lg:m-4 lg:h-auto lg:min-h-0 lg:flex-1">
             <MiniGrid
               card={selected}
               cursor={cursor}
@@ -460,7 +474,7 @@ function BoardShell({
               pulseCode={pulse.code}
             />
             {analysis.filled === 0 ? (
-              <p className="pointer-events-none absolute bottom-4 left-1/2 w-[min(100%-2rem,28rem)] -translate-x-1/2 rounded-full bg-[#1c1712]/85 px-4 py-2 text-center text-sm text-[#f4efe4]">
+              <p className="pointer-events-none absolute bottom-4 left-1/2 w-[min(100%-2rem,28rem)] -translate-x-1/2 rounded-full bg-[#10241c]/90 px-4 py-2 text-center text-sm text-[#f4f7f2]">
                 Type a code, or click a square. Right-click removes a daub.
               </p>
             ) : null}
@@ -519,11 +533,11 @@ function ActiveSquare({
   }
   const parts = splitCode(code);
   return (
-    <div className="mt-4 border-t border-[#e4dcc8] pt-4" data-testid="active-square">
-      <p className="font-mono text-2xl tracking-[0.18em] text-[#1c1712]">
+    <div className="mt-4 border-t border-[#c5d6c9] pt-4" data-testid="active-square">
+      <p className="font-mono text-2xl tracking-[0.18em] text-[#14211b]">
         {formatCode(code)}
       </p>
-      <p className="mt-1 text-sm text-[#5c5348]">
+      <p className="mt-1 text-sm text-[#4d6156]">
         Card {pad2(parts.card)} · row {pad2(parts.row)} · column {pad2(parts.col)}
       </p>
       <p className="mt-1 font-mono text-sm text-[#146b43]">

@@ -3,7 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const globalForDb = globalThis as unknown as { bingoDb?: DatabaseSync };
+const SCHEMA = 2;
+
+const globalForDb = globalThis as unknown as {
+  bingoDb?: DatabaseSync;
+  bingoSchema?: number;
+};
+
+function columnNames(db: DatabaseSync, table: string) {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return new Set(rows.map((row) => row.name));
+}
 
 function migrate(db: DatabaseSync) {
   db.exec(`
@@ -28,16 +38,31 @@ function migrate(db: DatabaseSync) {
       PRIMARY KEY (user_id, code)
     );
     CREATE INDEX IF NOT EXISTS marks_user_updated ON marks(user_id, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS pending_auth (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL CHECK (purpose IN ('enroll', 'login')),
+      expires_at INTEGER NOT NULL
+    );
   `);
+  const users = columnNames(db, "users");
+  if (!users.has("totp_secret")) db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
+  if (!users.has("totp_confirmed")) {
+    db.exec("ALTER TABLE users ADD COLUMN totp_confirmed INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!users.has("freebie_on")) db.exec("ALTER TABLE users ADD COLUMN freebie_on TEXT");
+  if (!users.has("freebie_code")) db.exec("ALTER TABLE users ADD COLUMN freebie_code INTEGER");
 }
 
 export function getDb(): DatabaseSync {
   if (!globalForDb.bingoDb) {
     const dir = path.join(process.cwd(), "data");
     fs.mkdirSync(dir, { recursive: true });
-    const db = new DatabaseSync(path.join(dir, "bingo.db"));
-    migrate(db);
-    globalForDb.bingoDb = db;
+    globalForDb.bingoDb = new DatabaseSync(path.join(dir, "bingo.db"));
+  }
+  if (globalForDb.bingoSchema !== SCHEMA) {
+    migrate(globalForDb.bingoDb);
+    globalForDb.bingoSchema = SCHEMA;
   }
   return globalForDb.bingoDb;
 }

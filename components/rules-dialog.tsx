@@ -13,15 +13,16 @@ import {
 const VIEWS = [
   {
     name: "The whole set",
-    summary: "One hundred squares, 000000–010000 through 990000–1000000. Each square is 10,000 codes.",
+    summary: "One hundred squares, 000000 to 010000 through 990000 to 1000000. Each square is 10,000 codes.",
   },
   {
     name: "A block of 10,000",
-    summary: "Click a square on the set. The next grid is a hundred pages, 000000–000100, 000100–000200, and so on.",
+    summary: "Click a square on the set. The next grid is a hundred pages, 000000 to 000100, 000100 to 000200, and so on.",
   },
   {
     name: "A hundred codes",
-    summary: "Click a page. These are the exact numbers. Click one to register it. Click again and it goes darker.",
+    summary:
+      "Click a page. These are the exact numbers. Click one to register it. You can mark the same code more than once - it will go darker with every marking.",
   },
 ];
 
@@ -35,7 +36,7 @@ export function RulesDialog() {
         <DialogHeader>
           <DialogTitle className="font-heading text-2xl">How a code lands</DialogTitle>
           <DialogDescription>
-            250417 sits in 250000–260000, then in 250400–250500, then on the
+            250417 sits in 250000 to 260000, then in 250400 to 250500, then on the
             square 250417.
           </DialogDescription>
         </DialogHeader>
@@ -48,9 +49,9 @@ export function RulesDialog() {
           ))}
         </ul>
         <p className="text-sm text-muted-foreground">
-          Type a code and press Find to open its hundred. The square is not
-          registered until you click it. Right-click, or Remove one, takes a
-          registration back.
+          Type a code and press Find. It takes you to that square. Click once
+          more to register it. A tick marks the square that is waiting. Right-click,
+          or Remove one, takes a registration back.
         </p>
         <p className="text-sm text-muted-foreground">
           On the two larger grids, green shows how much of that square is
@@ -58,9 +59,9 @@ export function RulesDialog() {
           code was registered again.
         </p>
         <p className="text-sm text-muted-foreground">
-          Logging in takes a code from your authenticator. The first successful
-          code each day is registered for you. Later logins the same day leave
-          that square as it is.
+          You stay signed in for 30 days, and coming back starts that again.
+          Authenticator sign-in is optional. When it is on, the first successful
+          code each day is registered for you.
         </p>
       </DialogContent>
     </Dialog>

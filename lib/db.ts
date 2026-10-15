@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-const SCHEMA = 2;
+const SCHEMA = 3;
 
 const globalForDb = globalThis as unknown as {
   bingoDb?: DatabaseSync;
@@ -52,6 +52,10 @@ function migrate(db: DatabaseSync) {
   }
   if (!users.has("freebie_on")) db.exec("ALTER TABLE users ADD COLUMN freebie_on TEXT");
   if (!users.has("freebie_code")) db.exec("ALTER TABLE users ADD COLUMN freebie_code INTEGER");
+  if (!users.has("totp_login")) {
+    db.exec("ALTER TABLE users ADD COLUMN totp_login INTEGER NOT NULL DEFAULT 0");
+    db.exec("UPDATE users SET totp_login = 1 WHERE totp_confirmed = 1");
+  }
 }
 
 export function getDb(): DatabaseSync {

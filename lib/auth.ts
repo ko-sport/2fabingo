@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { needsPartitionedCookies } from "@/lib/cookie-policy";
 import { getDb } from "@/lib/db";
+import { SESSION_SECONDS } from "@/lib/session";
 
 const COOKIE = "bingo_session";
 const PENDING = "bingo_pending";
-const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const PENDING_SECONDS = 60 * 10;
 
 export type PublicUser = {
@@ -16,6 +16,7 @@ export type PublicUser = {
   username: string;
   token: string;
   totpConfirmed: boolean;
+  totpLogin: boolean;
 };
 
 export type PendingAuth = {
@@ -32,6 +33,7 @@ type SessionRow = {
   username: string;
   expires_at: number;
   totp_confirmed: number;
+  totp_login: number;
 };
 
 async function sessionCookieOptions() {
@@ -93,7 +95,8 @@ function userForToken(token: string): PublicUser | null {
   const row = getDb()
     .prepare(
       `SELECT users.id AS id, users.username AS username,
-              sessions.expires_at AS expires_at, users.totp_confirmed AS totp_confirmed
+              sessions.expires_at AS expires_at, users.totp_confirmed AS totp_confirmed,
+              users.totp_login AS totp_login
        FROM sessions
        JOIN users ON users.id = sessions.user_id
        WHERE sessions.token = ?`,
@@ -106,7 +109,19 @@ function userForToken(token: string): PublicUser | null {
     username: String(row.username),
     token,
     totpConfirmed: Number(row.totp_confirmed) === 1,
+    totpLogin: Number(row.totp_login) === 1,
   };
+}
+
+export async function renewSession(token: string): Promise<void> {
+  if (!TOKEN_RE.test(token)) return;
+  const expiresAt = Date.now() + SESSION_SECONDS * 1000;
+  const changed = getDb()
+    .prepare("UPDATE sessions SET expires_at = ? WHERE token = ? AND expires_at > ?")
+    .run(expiresAt, token, Date.now());
+  if (Number(changed.changes) === 0) return;
+  const jar = await cookies();
+  jar.set(COOKIE, token, await sessionCookieOptions());
 }
 
 export async function readSessionUser(
@@ -129,8 +144,14 @@ export async function readSessionUser(
 export async function getCurrentUser(fallbackToken?: string | null): Promise<PublicUser> {
   const user = await readSessionUser(fallbackToken);
   if (!user) redirect("/login");
-  if (!user.totpConfirmed) redirect("/setup");
+  if (user.totpLogin && !user.totpConfirmed) redirect("/setup");
   return user;
+}
+
+export function redirectSignedIn(user: PublicUser | null): void {
+  if (!user) return;
+  if (user.totpLogin && !user.totpConfirmed) redirect("/setup");
+  redirect(`/board?session=${user.token}`);
 }
 
 export async function getOptionalUser(): Promise<PublicUser | null> {

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { loginAction } from "@/app/actions/auth";
-import { getOptionalUser } from "@/lib/auth";
+import { getOptionalUser, redirectSignedIn } from "@/lib/auth";
+import { SESSION_DAYS } from "@/lib/session";
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 
@@ -21,12 +21,11 @@ export default function LoginPage() {
 
 async function LoginGate() {
   const user = await getOptionalUser();
-  if (user?.totpConfirmed) redirect("/board");
-  if (user) redirect("/setup");
+  redirectSignedIn(user);
   return (
     <AuthShell
       title="Log in"
-      lede="Password first. Then the six digits from your authenticator — that code is today’s free square."
+      lede={`You stay signed in for ${SESSION_DAYS} days. If authenticator sign-in is on, the next step is the six-digit code, and that code is marked once each day.`}
     >
       <AuthForm mode="login" action={loginAction} />
     </AuthShell>

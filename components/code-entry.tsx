@@ -57,7 +57,7 @@ export function CodeEntry({ onFind }: { onFind: (code: string) => void }) {
       </div>
       <p id="code-hint" className="text-sm text-muted-foreground">
         {error ??
-          "Opens that hundred. Click the square once more to register it."}
+          "Takes you to that square. Click once more to register it."}
       </p>
     </form>
   );

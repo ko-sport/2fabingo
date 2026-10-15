@@ -60,7 +60,7 @@ export const LocatorGrid = memo(function LocatorGrid({
               label={spanLabel(start, start + 10_000)}
               ariaLabel={`${spanLabel(start, start + 10_000)}, ${filled.toLocaleString()} of 10,000`}
               onClick={() => onOpen(index)}
-              lines={[formatCode(start), spanEnd(start + 10_000)]}
+              lines={[formatCode(start), "to", spanEnd(start + 10_000)]}
             />
           );
         }
@@ -76,7 +76,7 @@ export const LocatorGrid = memo(function LocatorGrid({
               label={spanLabel(start, start + 100)}
               ariaLabel={`${spanLabel(start, start + 100)}, ${filled} of 100`}
               onClick={() => onOpen(index)}
-              lines={[formatCode(start), spanEnd(start + 100)]}
+              lines={[formatCode(start), "to", spanEnd(start + 100)]}
             />
           );
         }
@@ -91,11 +91,14 @@ export const LocatorGrid = memo(function LocatorGrid({
             style={style}
             label={formatCode(code)}
             ariaLabel={
-              count === 0
-                ? `${formatCode(code)}, not registered`
-                : `${formatCode(code)}, registered ${count} ${count === 1 ? "time" : "times"}`
+              focused && count === 0
+                ? `${formatCode(code)}, click once more to register`
+                : count === 0
+                  ? `${formatCode(code)}, not registered`
+                  : `${formatCode(code)}, registered ${count} ${count === 1 ? "time" : "times"}`
             }
             focused={focused}
+            tick={focused && count === 0}
             onClick={() => onRegister(index)}
             onContextMenu={() => onRemove(index)}
             lines={[formatCode(code)]}
@@ -117,6 +120,7 @@ function Cell({
   lines,
   badge,
   focused,
+  tick,
   testId,
 }: {
   style: { background: string; color: string };
@@ -127,6 +131,7 @@ function Cell({
   lines: string[];
   badge?: string | null;
   focused?: boolean;
+  tick?: boolean;
   testId?: string;
 }) {
   return (
@@ -145,16 +150,28 @@ function Cell({
           : undefined
       }
       className={cn(
-        "flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[4px] px-px text-center font-mono leading-none",
+        "relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-[4px] px-px text-center font-mono leading-none",
         focused && "z-10 ring-2 ring-[#c5341a] ring-offset-2 ring-offset-[#f7fbf8]",
       )}
       style={{ background: style.background, color: style.color }}
     >
       {lines.map((line) => (
-        <span key={line} className="block text-[7px] leading-tight tracking-tighter whitespace-nowrap sm:text-[11px] sm:tracking-tight md:text-xs">
+        <span
+          key={line}
+          className="block text-[6px] leading-tight tracking-tighter whitespace-nowrap sm:text-[10px] sm:tracking-tight md:text-[11px]"
+        >
           {line}
         </span>
       ))}
+      {tick ? (
+        <span
+          data-testid="confirm-tick"
+          aria-hidden
+          className="absolute top-0.5 right-0.5 text-[10px] leading-none font-bold text-[#0f6b3c] sm:text-xs"
+        >
+          ✓
+        </span>
+      ) : null}
       {badge ? (
         <span className="mt-0.5 text-[8px] font-semibold sm:text-[10px]">{badge}</span>
       ) : null}

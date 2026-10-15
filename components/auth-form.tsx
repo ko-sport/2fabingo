@@ -66,6 +66,19 @@ export function AuthForm({
           <p className="text-sm text-muted-foreground">At least 8 characters.</p>
         )}
       </div>
+      {mode === "register" ? (
+        <label className="flex items-start gap-2 text-sm text-[#14211b]">
+          <input
+            type="checkbox"
+            name="authenticator"
+            value="on"
+            className="mt-1 size-4 accent-[#1f7a45]"
+          />
+          <span>
+            Sign in with an authenticator. The code that signs you in is marked once each day.
+          </span>
+        </label>
+      ) : null}
       {state.error ? (
         <p className="text-sm text-destructive" role="alert">
           {state.error}

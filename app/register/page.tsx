@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { registerAction } from "@/app/actions/auth";
-import { getOptionalUser } from "@/lib/auth";
+import { getOptionalUser, redirectSignedIn } from "@/lib/auth";
+import { SESSION_DAYS } from "@/lib/session";
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 
@@ -21,12 +21,11 @@ export default function RegisterPage() {
 
 async function RegisterGate() {
   const user = await getOptionalUser();
-  if (user?.totpConfirmed) redirect("/board");
-  if (user) redirect("/setup");
+  redirectSignedIn(user);
   return (
     <AuthShell
       title="Start a card"
-      lede="Pick a username and password. Next you’ll pair an authenticator, and the code that confirms it is your first free square."
+      lede={`Pick a username and password. You stay signed in for ${SESSION_DAYS} days. An authenticator is optional.`}
     >
       <AuthForm mode="register" action={registerAction} />
     </AuthShell>

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { enrollAction } from "@/app/actions/auth";
+import { enrollAction, passwordOnlyAction } from "@/app/actions/auth";
 import { readPending, readSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { createSecret, formatSecret, qrDataUrl } from "@/lib/totp";
@@ -95,6 +95,15 @@ async function SetupGate({ searchParams }: { searchParams: Promise<Search> }) {
           submit="Confirm and open the card"
           hint="Enter the six digits the app is showing right now."
         />
+        <form action={passwordOnlyAction} className="mt-4">
+          <input type="hidden" name="ticket" value={pending?.token ?? ""} />
+          <button
+            type="submit"
+            className="text-sm text-[#1f7a45] underline underline-offset-2"
+          >
+            Use a password only
+          </button>
+        </form>
       </div>
     </AuthShell>
   );

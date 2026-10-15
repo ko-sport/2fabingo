@@ -30,5 +30,5 @@ export function spanEnd(endExclusive: number): string {
 }
 
 export function spanLabel(start: number, endExclusive: number): string {
-  return `${formatCode(start)}–${spanEnd(endExclusive)}`;
+  return `${formatCode(start)} to ${spanEnd(endExclusive)}`;
 }

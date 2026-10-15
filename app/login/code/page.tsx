@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { loginCodeAction } from "@/app/actions/auth";
+import { loginCodeAction, passwordOnlyAction } from "@/app/actions/auth";
 import { readPending } from "@/lib/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { TotpForm } from "@/components/totp-form";
@@ -45,6 +45,12 @@ async function CodeGate({ searchParams }: { searchParams: Promise<Search> }) {
         submit="Open the card"
         hint="It changes every 30 seconds. A code from the previous or next step still counts."
       />
+      <form action={passwordOnlyAction} className="mt-4">
+        <input type="hidden" name="ticket" value={pending.token} />
+        <button type="submit" className="text-sm text-[#1f7a45] underline underline-offset-2">
+          Sign in with the password only
+        </button>
+      </form>
     </AuthShell>
   );
 }

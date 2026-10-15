@@ -8,6 +8,7 @@ import {
   destroySession,
   readPending,
   readSessionUser,
+  renewSession,
 } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { claimDailyFreebie } from "@/lib/marks-data";
@@ -28,12 +29,13 @@ type UserRow = {
   password_hash: string;
   totp_secret: string | null;
   totp_confirmed: number;
+  totp_login: number;
 };
 
 function loadUser(id: number): UserRow | undefined {
   return getDb()
     .prepare(
-      `SELECT id, username, password_hash, totp_secret, totp_confirmed
+      `SELECT id, username, password_hash, totp_secret, totp_confirmed, totp_login
        FROM users WHERE id = ?`,
     )
     .get(id) as UserRow | undefined;
@@ -70,6 +72,7 @@ export async function registerAction(
 ): Promise<AuthState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const wantsAuthenticator = formData.get("authenticator") === "on";
   const usernameError = validateUsername(username);
   const passwordError = validatePassword(password);
   if (usernameError || passwordError) {
@@ -85,10 +88,20 @@ export async function registerAction(
   if (existing) return { usernameError: "That username is already taken." };
 
   const passwordHash = await hashPassword(password);
+  if (!wantsAuthenticator) {
+    const result = getDb()
+      .prepare(
+        "INSERT INTO users (username, password_hash, totp_confirmed, totp_login) VALUES (?, ?, 0, 0)",
+      )
+      .run(username, passwordHash);
+    const token = await createSession(Number(result.lastInsertRowid));
+    redirect(`/board?session=${token}`);
+  }
+
   const secret = createSecret();
   const result = getDb()
     .prepare(
-      "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed) VALUES (?, ?, ?, 0)",
+      "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login) VALUES (?, ?, ?, 0, 1)",
     )
     .run(username, passwordHash, secret);
   const ticket = await beginPending(Number(result.lastInsertRowid), "enroll");
@@ -107,7 +120,7 @@ export async function loginAction(
 
   const row = getDb()
     .prepare(
-      `SELECT id, password_hash, totp_secret, totp_confirmed
+      `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
        FROM users WHERE username = ?`,
     )
     .get(username) as UserRow | undefined;
@@ -115,14 +128,18 @@ export async function loginAction(
     return { error: "Those details don’t match an account." };
   }
 
-  if (!row.totp_secret || Number(row.totp_confirmed) !== 1) {
-    ensureSecret(Number(row.id));
-    const ticket = await beginPending(Number(row.id), "enroll");
-    redirect(`/setup?ticket=${ticket}`);
+  if (Number(row.totp_login) === 1) {
+    if (!row.totp_secret || Number(row.totp_confirmed) !== 1) {
+      ensureSecret(Number(row.id));
+      const ticket = await beginPending(Number(row.id), "enroll");
+      redirect(`/setup?ticket=${ticket}`);
+    }
+    const ticket = await beginPending(Number(row.id), "login");
+    redirect(`/login/code?ticket=${ticket}`);
   }
 
-  const ticket = await beginPending(Number(row.id), "login");
-  redirect(`/login/code?ticket=${ticket}`);
+  const token = await createSession(Number(row.id));
+  redirect(`/board?session=${token}`);
 }
 
 export async function enrollAction(
@@ -145,7 +162,7 @@ export async function enrollAction(
   }
 
   getDb()
-    .prepare("UPDATE users SET totp_confirmed = 1 WHERE id = ?")
+    .prepare("UPDATE users SET totp_confirmed = 1, totp_login = 1 WHERE id = ?")
     .run(user.id);
   const code = parseCode(digits);
   if (code !== null) claimDailyFreebie(user.id, code);
@@ -172,6 +189,41 @@ export async function loginCodeAction(
   await clearPending(pending.token);
   const token = await createSession(user.id);
   redirect(`/board?session=${token}`);
+}
+
+export async function touchSessionAction(sessionToken: string): Promise<void> {
+  await renewSession(sessionToken);
+}
+
+export async function passwordOnlyAction(formData: FormData): Promise<void> {
+  const ticket = String(formData.get("ticket") ?? "");
+  const pending = await readPending(ticket);
+  const session = await readSessionUser();
+  const userId = pending?.userId ?? session?.id ?? null;
+  if (userId === null) redirect("/login");
+  getDb().prepare("UPDATE users SET totp_login = 0 WHERE id = ?").run(userId);
+  await clearPending(pending?.token ?? ticket);
+  if (session) await destroySession(session.token);
+  const token = await createSession(userId);
+  redirect(`/board?session=${token}`);
+}
+
+export async function setAuthenticatorAction(formData: FormData): Promise<void> {
+  const sessionToken = String(formData.get("session") ?? "");
+  const user = await readSessionUser(sessionToken);
+  if (!user) redirect("/login");
+  const enable = String(formData.get("enabled") ?? "") === "1";
+  if (!enable) {
+    getDb().prepare("UPDATE users SET totp_login = 0 WHERE id = ?").run(user.id);
+    redirect(`/board?session=${user.token}`);
+  }
+  if (user.totpConfirmed) {
+    getDb().prepare("UPDATE users SET totp_login = 1 WHERE id = ?").run(user.id);
+    redirect(`/board?session=${user.token}`);
+  }
+  ensureSecret(user.id);
+  const ticket = await beginPending(user.id, "enroll");
+  redirect(`/setup?ticket=${ticket}`);
 }
 
 export async function logoutAction(formData: FormData): Promise<void> {

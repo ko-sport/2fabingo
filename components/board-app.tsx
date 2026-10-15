@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction, setAuthenticatorAction, touchSessionAction } from "@/app/actions/auth";
 import {
   daubManyAction,
   importMarksAction,
@@ -46,12 +45,14 @@ type Stamp = { title: string; detail: string };
 export function BoardApp({
   username,
   sessionToken,
+  authenticatorLogin,
   freebieCode,
   initialMarks,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
+  authenticatorLogin: boolean;
   freebieCode: number | null;
   initialMarks: [number, number][];
   initialRecent: Recent[];
@@ -62,6 +63,7 @@ export function BoardApp({
       <BoardShell
         username={username}
         sessionToken={sessionToken}
+        authenticatorLogin={authenticatorLogin}
         freebieCode={freebieCode}
         initialRecent={initialRecent}
       />
@@ -72,11 +74,13 @@ export function BoardApp({
 function BoardShell({
   username,
   sessionToken,
+  authenticatorLogin,
   freebieCode,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
+  authenticatorLogin: boolean;
   freebieCode: number | null;
   initialRecent: Recent[];
 }) {
@@ -94,6 +98,10 @@ function BoardShell({
     null,
   );
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void touchSessionAction(sessionToken);
+  }, [sessionToken]);
 
   const locate = useCallback((code: number) => {
     setZoom({
@@ -336,9 +344,15 @@ function BoardShell({
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="masthead flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-        <Link href="/" className="text-xl text-[#f4f7f2]">
+        <button
+          type="button"
+          onClick={() => setZoom({ level: 0 })}
+          className="text-xl text-[#f4f7f2]"
+          aria-label="Back to the full grid"
+          data-testid="wordmark"
+        >
           <Wordmark />
-        </Link>
+        </button>
         <p className="font-mono text-sm text-[#c9ddd0]" data-testid="filled-count">
           {analysis.filled.toLocaleString()} / 1,000,000
           <span className="text-[#8eaa98]"> · {percent}</span>
@@ -370,8 +384,8 @@ function BoardShell({
               <h2 className="font-heading text-2xl text-[#14211b]">Find manually</h2>
               <p className="mt-1 text-sm text-[#4d6156]">
                 {zoom.level === 2
-                  ? "Click a number to register it. Click it again and it goes darker."
-                  : "Each square opens the next grid. Two clicks to reach a hundred codes."}
+                  ? "You can mark the same code more than once - it will go darker with every marking."
+                  : "Click on the boxes to locate your 2FA code."}
               </p>
             </div>
           </div>
@@ -428,11 +442,23 @@ function BoardShell({
                   Show it
                 </button>
               </div>
-            ) : (
+            ) : authenticatorLogin ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                The authenticator code you log in with is daubed once each day.
+                The authenticator code you log in with is marked once each day.
               </p>
-            )}
+            ) : null}
+            <form action={setAuthenticatorAction} className="mt-3">
+              <input type="hidden" name="session" value={sessionToken} />
+              <input type="hidden" name="enabled" value={authenticatorLogin ? "0" : "1"} />
+              <p className="text-sm text-[#4d6156]">
+                {authenticatorLogin
+                  ? "Authenticator sign-in is on."
+                  : "Authenticator sign-in is off. Turn it on if you want one code marked each day you log in."}
+              </p>
+              <Button type="submit" variant="outline" size="sm" className="mt-2">
+                {authenticatorLogin ? "Turn it off" : "Turn it on"}
+              </Button>
+            </form>
             <FocusReadout
               code={focusCode}
               onRegister={(delta) => {
@@ -445,7 +471,7 @@ function BoardShell({
 
         <div className="order-3 grid gap-4 lg:grid-cols-2">
           <div className="ticket rounded-2xl p-4">
-            <Achievements block={block} page={page} />
+            <Achievements />
           </div>
           <section className="ticket rounded-2xl p-4">
             <h2 className="font-heading text-xl text-[#14211b]">Recent</h2>

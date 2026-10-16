@@ -1,5 +1,6 @@
 import "server-only";
 import { getDb } from "@/lib/db";
+import { parseMarkedAt } from "@/lib/mark-day";
 
 const MAX_COUNT = 9999;
 
@@ -17,10 +18,10 @@ export async function listMarks(userId: number): Promise<[number, number][]> {
 export async function listRecent(
   userId: number,
   limit = 20,
-): Promise<{ code: number; count: number }[]> {
+): Promise<{ code: number; count: number; markedAt: string }[]> {
   const db = await getDb();
-  const rows = await db.all<MarkRow>(
-    `SELECT code, count FROM marks
+  const rows = await db.all<MarkRow & { updated_at: string }>(
+    `SELECT code, count, updated_at FROM marks
      WHERE user_id = ?
      ORDER BY updated_at DESC, code DESC
      LIMIT ?`,
@@ -29,6 +30,7 @@ export async function listRecent(
   return rows.map((row) => ({
     code: Number(row.code),
     count: Number(row.count),
+    markedAt: parseMarkedAt(String(row.updated_at)).toISOString(),
   }));
 }
 

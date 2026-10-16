@@ -21,6 +21,7 @@ import { StampOverlay } from "@/components/stamp-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
 import { formatCode, parseCode } from "@/lib/codes";
+import { formatMarkDay } from "@/lib/mark-day";
 import {
   blockStart,
   cellCode,
@@ -29,7 +30,7 @@ import {
   spanLabel,
 } from "@/lib/zoom";
 
-type Recent = { code: number; count: number };
+type Recent = { code: number; count: number; markedAt: string };
 type Stamp = { title: string; detail: string };
 
 export function BoardApp({
@@ -87,13 +88,14 @@ function BoardShell({
 
   const remember = useCallback(
     (codes: number[]) => {
+      const markedAt = new Date().toISOString();
       setRecent((current) => {
         let next = current;
         for (let index = codes.length - 1; index >= 0; index--) {
           const code = codes[index];
           const count = store.get(code);
           next = next.filter((item) => item.code !== code);
-          if (count > 0) next = [{ code, count }, ...next];
+          if (count > 0) next = [{ code, count, markedAt }, ...next];
         }
         return next.slice(0, 20);
       });
@@ -265,11 +267,11 @@ function BoardShell({
         <button
           type="button"
           onClick={() => setZoom({ level: 0 })}
-          className="text-xl text-[#f4f7f2]"
+          className="text-xl font-medium leading-tight text-[#f4f7f2]"
           aria-label="Back to the full grid"
           data-testid="wordmark"
         >
-          <Wordmark />
+          <Wordmark plain />
         </button>
         <p className="font-mono text-sm text-[#c9ddd0]" data-testid="filled-count">
           {analysis.filled.toLocaleString()} / 1,000,000
@@ -370,11 +372,15 @@ function BoardShell({
                     <button
                       type="button"
                       onClick={() => locate(item.code)}
-                      aria-label={`${formatCode(item.code)}, registered ${item.count} ${item.count === 1 ? "time" : "times"}`}
-                      className="flex w-full flex-col items-center rounded-lg bg-[#e7f3ea] px-1 py-2 text-center font-mono hover:bg-[#d5eadc]"
+                      aria-label={`${formatCode(item.code)}, marked ${formatMarkDay(item.markedAt)}`}
+                      className="flex w-full flex-col items-center rounded-lg bg-[#e7f3ea] px-0.5 py-2 text-center hover:bg-[#d5eadc]"
                     >
-                      <span className="text-sm tracking-tight text-[#14211b]">{formatCode(item.code)}</span>
-                      <span className="mt-0.5 text-xs text-[#4d6156]">{item.count}×</span>
+                      <span className="text-xs leading-none tracking-tight text-[#4d6156] tabular-nums whitespace-nowrap sm:text-sm">
+                        {formatMarkDay(item.markedAt)}
+                      </span>
+                      <span className="mt-1 font-mono text-sm leading-none tracking-tight text-[#14211b]">
+                        {formatCode(item.code)}
+                      </span>
                     </button>
                   </li>
                 ))}

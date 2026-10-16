@@ -46,7 +46,7 @@ export async function daubManyAction(
 export async function reloadMarksAction(
   sessionToken?: string,
 ): Promise<
-  | { marks: [number, number][]; recent: { code: number; count: number }[] }
+  | { marks: [number, number][]; recent: { code: number; count: number; markedAt: string }[] }
   | { error: string }
 > {
   const user = await readSessionUser(sessionToken);

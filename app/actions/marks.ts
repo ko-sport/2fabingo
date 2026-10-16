@@ -3,6 +3,8 @@
 import { readSessionUser } from "@/lib/auth";
 import { parseCode } from "@/lib/codes";
 import { applyGrouped, listMarks, listRecent } from "@/lib/marks-data";
+import { loadTeam } from "@/lib/teams";
+import type { TeamBoard } from "@/lib/team-shape";
 
 const MAX_ENTRIES = 2_000;
 
@@ -31,13 +33,13 @@ function groupEntries(entries: DaubEntry[]): Map<number, number> | string {
 export async function daubManyAction(
   entries: DaubEntry[],
   sessionToken?: string,
-): Promise<{ counts: [number, number][] } | { error: string }> {
+): Promise<{ counts: [number, number][]; teamCounts: [number, number][] | null } | { error: string }> {
   const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
   const grouped = groupEntries(entries);
   if (typeof grouped === "string") return { error: grouped };
   try {
-    return { counts: await applyGrouped(user.id, grouped) };
+    return await applyGrouped(user.id, grouped);
   } catch {
     return { error: "Couldn’t save that daub." };
   }
@@ -46,10 +48,18 @@ export async function daubManyAction(
 export async function reloadMarksAction(
   sessionToken?: string,
 ): Promise<
-  | { marks: [number, number][]; recent: { code: number; count: number; markedAt: string }[] }
+  | {
+      marks: [number, number][];
+      recent: { code: number; count: number; markedAt: string }[];
+      team: TeamBoard | null;
+    }
   | { error: string }
 > {
   const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
-  return { marks: await listMarks(user.id), recent: await listRecent(user.id) };
+  return {
+    marks: await listMarks(user.id),
+    recent: await listRecent(user.id),
+    team: await loadTeam(user.id),
+  };
 }

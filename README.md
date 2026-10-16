@@ -41,6 +41,10 @@ An email and a password open the card. Continue with Google does the same, and o
 
 The name in the corner is the one on the card. Click it to change it. A new email or Google card takes the part of the address before the @, and adds a number when that name is already taken.
 
+## Teams
+
+Team opens a shared card. Create one and share its 6-character code, or join with a code. You can be on one team. A mark on your card is also a mark on the team card, added to everyone else’s. You and the team name switch which card is on screen. The team card is blue. Leaving does not remove the marks you already added. Marks from before you joined are not copied onto the team.
+
 The card opens with the session on its address, so a browser that drops the cookie still reaches your squares.
 
 ## Accounts

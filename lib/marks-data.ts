@@ -1,6 +1,7 @@
 import "server-only";
 import { getDb } from "@/lib/db";
 import { parseMarkedAt } from "@/lib/mark-day";
+import { bumpTeamMark, teamIdFor, teamTotal } from "@/lib/teams";
 
 const MAX_COUNT = 9999;
 
@@ -37,10 +38,12 @@ export async function listRecent(
 export async function applyGrouped(
   userId: number,
   grouped: Map<number, number>,
-): Promise<[number, number][]> {
+): Promise<{ counts: [number, number][]; teamCounts: [number, number][] | null }> {
   const db = await getDb();
   return db.transaction(async (tx) => {
     const out: [number, number][] = [];
+    const teamId = await teamIdFor(tx, userId);
+    const teamCounts: [number, number][] = [];
     for (const [code, delta] of grouped) {
       if (!Number.isInteger(code) || code < 0 || code > 999999) continue;
       if (!Number.isInteger(delta) || delta === 0) continue;
@@ -56,25 +59,29 @@ export async function applyGrouped(
           [userId, code, amount, amount],
         );
         out.push([code, Number(row?.count ?? amount)]);
-        continue;
-      }
-      const existing = await tx.get<{ count: number }>(
-        "SELECT count FROM marks WHERE user_id = ? AND code = ?",
-        [userId, code],
-      );
-      const next = (existing ? Number(existing.count) : 0) + delta;
-      if (next <= 0) {
-        await tx.run("DELETE FROM marks WHERE user_id = ? AND code = ?", [userId, code]);
-        out.push([code, 0]);
       } else {
-        await tx.run(
-          "UPDATE marks SET count = ?, updated_at = datetime('now') WHERE user_id = ? AND code = ?",
-          [next, userId, code],
+        const existing = await tx.get<{ count: number }>(
+          "SELECT count FROM marks WHERE user_id = ? AND code = ?",
+          [userId, code],
         );
-        out.push([code, next]);
+        const next = (existing ? Number(existing.count) : 0) + delta;
+        if (next <= 0) {
+          await tx.run("DELETE FROM marks WHERE user_id = ? AND code = ?", [userId, code]);
+          out.push([code, 0]);
+        } else {
+          await tx.run(
+            "UPDATE marks SET count = ?, updated_at = datetime('now') WHERE user_id = ? AND code = ?",
+            [next, userId, code],
+          );
+          out.push([code, next]);
+        }
+      }
+      if (teamId !== null) {
+        await bumpTeamMark(tx, teamId, userId, code, delta);
+        teamCounts.push([code, await teamTotal(tx, teamId, code)]);
       }
     }
-    return out;
+    return { counts: out, teamCounts: teamId === null ? null : teamCounts };
   });
 }
 

@@ -19,7 +19,7 @@ export type SqlDb = {
   transaction<T>(fn: (tx: SqlDb) => Promise<T>): Promise<T>;
 };
 
-const CLIENT = 6;
+const CLIENT = 7;
 
 export class DatabaseConfigError extends Error {
   constructor(message: string) {
@@ -54,6 +54,28 @@ const SCHEMA_SQL = `
     PRIMARY KEY (user_id, code)
   );
   CREATE INDEX IF NOT EXISTS marks_user_updated ON marks(user_id, updated_at DESC);
+  CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    join_code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS team_members (
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (team_id, user_id)
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS team_members_user ON team_members(user_id);
+  CREATE TABLE IF NOT EXISTS team_marks (
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code INTEGER NOT NULL CHECK (code >= 0 AND code <= 999999),
+    count INTEGER NOT NULL CHECK (count > 0 AND count <= 9999),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (team_id, user_id, code)
+  );
+  CREATE INDEX IF NOT EXISTS team_marks_team_code ON team_marks(team_id, code);
   CREATE TABLE IF NOT EXISTS pending_auth (
     token TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

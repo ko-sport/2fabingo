@@ -2,7 +2,7 @@
 
 import { memo, useSyncExternalStore } from "react";
 import { formatCode } from "@/lib/codes";
-import { coverageStyle, daubStyle } from "@/lib/colors";
+import { coverageStyle, daubStyle, type CardTone } from "@/lib/colors";
 import {
   blockStart,
   cellCode,
@@ -32,11 +32,13 @@ export const LocatorGrid = memo(function LocatorGrid({
   onOpen,
   onSelect,
   onRemove,
+  tone = "green",
 }: {
   zoom: Zoom;
   onOpen: (index: number) => void;
   onSelect: (index: number) => void;
   onRemove: (index: number) => void;
+  tone?: CardTone;
 }) {
   const analysis = useAnalysis();
   const store = useCardStore();
@@ -47,11 +49,12 @@ export const LocatorGrid = memo(function LocatorGrid({
       className="grid grid-cols-10 gap-1 sm:gap-1.5"
       data-testid="locator-grid"
       data-level={zoom.level}
+      data-tone={tone}
     >
       {Array.from({ length: 100 }, (_, index) => {
         if (zoom.level === 0) {
           const filled = analysis.cards[index]?.filled ?? 0;
-          const style = coverageStyle(filled, 10_000);
+          const style = coverageStyle(filled, 10_000, tone);
           const start = blockStart(index);
           return (
             <Cell
@@ -67,7 +70,7 @@ export const LocatorGrid = memo(function LocatorGrid({
 
         if (zoom.level === 1) {
           const filled = analysis.pageFill[zoom.block * 100 + index] ?? 0;
-          const style = coverageStyle(filled, 100);
+          const style = coverageStyle(filled, 100, tone);
           const start = pageStart(zoom.block, index);
           return (
             <Cell
@@ -83,7 +86,7 @@ export const LocatorGrid = memo(function LocatorGrid({
 
         const code = cellCode(zoom.block, zoom.page, index);
         const count = store.get(code);
-        const style = daubStyle(count);
+        const style = daubStyle(count, tone);
         const focused = zoom.focus === code;
         return (
           <Cell

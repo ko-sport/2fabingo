@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { logoutAction, touchSessionAction } from "@/app/actions/auth";
 import { daubManyAction, reloadMarksAction } from "@/app/actions/marks";
@@ -18,10 +18,13 @@ import { CodeEntry } from "@/components/code-entry";
 import { LocatorGrid, type Zoom } from "@/components/locator-grid";
 import { DisplayName } from "@/components/display-name";
 import { StampOverlay } from "@/components/stamp-overlay";
+import { TeamDialog } from "@/components/team-dialog";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
 import { formatCode, parseCode } from "@/lib/codes";
 import { formatMarkDay } from "@/lib/mark-day";
+import type { CardTone } from "@/lib/colors";
+import type { TeamBoard } from "@/lib/team-shape";
 import {
   blockStart,
   cellCode,
@@ -38,16 +41,38 @@ export function BoardApp({
   sessionToken,
   initialMarks,
   initialRecent,
+  initialTeam,
 }: {
   username: string;
   sessionToken: string;
   initialMarks: [number, number][];
   initialRecent: Recent[];
+  initialTeam: TeamBoard | null;
 }) {
-  const [store] = useState(() => new CardStore(initialMarks));
+  const [personal] = useState(() => new CardStore(initialMarks));
+  const [teamStore] = useState(() => new CardStore(initialTeam?.marks ?? []));
+  const [team, setTeam] = useState(initialTeam);
+  const [view, setView] = useState<"mine" | "team">("mine");
+  const silent = useRef(false);
+  const visible = view === "team" && team ? teamStore : personal;
   return (
-    <CardStoreProvider store={store}>
-      <BoardShell username={username} sessionToken={sessionToken} initialRecent={initialRecent} />
+    <CardStoreProvider store={visible}>
+      <BoardShell
+        username={username}
+        sessionToken={sessionToken}
+        initialRecent={initialRecent}
+        initialTeamRecent={initialTeam?.recent ?? []}
+        personal={personal}
+        teamStore={teamStore}
+        team={team}
+        setTeam={setTeam}
+        view={view}
+        silent={silent}
+        onView={(next) => {
+          silent.current = true;
+          setView(next);
+        }}
+      />
     </CardStoreProvider>
   );
 }
@@ -56,18 +81,36 @@ function BoardShell({
   username,
   sessionToken,
   initialRecent,
+  initialTeamRecent,
+  personal,
+  teamStore,
+  team,
+  setTeam,
+  view,
+  silent,
+  onView,
 }: {
   username: string;
   sessionToken: string;
   initialRecent: Recent[];
+  initialTeamRecent: Recent[];
+  personal: CardStore;
+  teamStore: CardStore;
+  team: TeamBoard | null;
+  setTeam: (team: TeamBoard | null) => void;
+  view: "mine" | "team";
+  silent: { current: boolean };
+  onView: (view: "mine" | "team") => void;
 }) {
   const store = useCardStore();
   const analysis = useAnalysis();
   const chain = useRef(Promise.resolve());
   const epoch = useRef(0);
-  const silent = useRef(false);
   const previous = useRef<typeof analysis | null>(null);
-  const [recent, setRecent] = useState<Recent[]>(initialRecent);
+  const [mineRecent, setMineRecent] = useState<Recent[]>(initialRecent);
+  const [teamRecent, setTeamRecent] = useState<Recent[]>(initialTeamRecent);
+  const recent = view === "team" && team ? teamRecent : mineRecent;
+  const tone: CardTone = view === "team" && team ? "blue" : "green";
   const [zoom, setZoom] = useState<Zoom>({ level: 0 });
   const [saving, setSaving] = useState(0);
   const [stamp, setStamp] = useState<Stamp | null>(null);
@@ -86,22 +129,21 @@ function BoardShell({
     });
   }, []);
 
-  const remember = useCallback(
-    (codes: number[]) => {
-      const markedAt = new Date().toISOString();
-      setRecent((current) => {
-        let next = current;
-        for (let index = codes.length - 1; index >= 0; index--) {
-          const code = codes[index];
-          const count = store.get(code);
-          next = next.filter((item) => item.code !== code);
-          if (count > 0) next = [{ code, count, markedAt }, ...next];
-        }
-        return next.slice(0, 20);
-      });
-    },
-    [store],
-  );
+  const remember = useCallback((codes: number[]) => {
+    const markedAt = new Date().toISOString();
+    const place = (current: Recent[], target: CardStore) => {
+      let next = current;
+      for (let index = codes.length - 1; index >= 0; index -= 1) {
+        const code = codes[index];
+        const count = target.get(code);
+        next = next.filter((item) => item.code !== code);
+        if (count > 0) next = [{ code, count, markedAt }, ...next];
+      }
+      return next.slice(0, 20);
+    };
+    setMineRecent((current) => place(current, personal));
+    if (team) setTeamRecent((current) => place(current, teamStore));
+  }, [personal, team, teamStore]);
 
   const persist = useCallback(
     (entries: { code: number; delta: number }[]) => {
@@ -110,14 +152,29 @@ function BoardShell({
       for (const entry of entries) {
         grouped.set(entry.code, (grouped.get(entry.code) ?? 0) + entry.delta);
       }
+      for (const [code, delta] of [...grouped]) {
+        if (delta < 0 && personal.get(code) <= 0) grouped.delete(code);
+      }
+      if (grouped.size === 0) return;
       const my = ++epoch.current;
       for (const [code, delta] of grouped) {
-        store.set(code, Math.max(0, Math.min(9999, store.get(code) + delta)));
+        personal.set(code, Math.max(0, Math.min(9999, personal.get(code) + delta)));
+        if (team) teamStore.set(code, Math.max(0, teamStore.get(code) + delta));
       }
       const codes = [...grouped.keys()];
       remember(codes);
       setSaving((count) => count + 1);
       chain.current = chain.current.then(async () => {
+        const restore = async () => {
+          const fresh = await reloadMarksAction(sessionToken);
+          if ("error" in fresh || my !== epoch.current) return;
+          silent.current = true;
+          personal.hydrate(fresh.marks);
+          setMineRecent(fresh.recent);
+          teamStore.hydrate(fresh.team?.marks ?? []);
+          setTeamRecent(fresh.team?.recent ?? []);
+          setTeam(fresh.team);
+        };
         try {
           const result = await daubManyAction(
             [...grouped].map(([code, delta]) => ({
@@ -128,29 +185,20 @@ function BoardShell({
           );
           if ("error" in result) {
             toast.error(result.error);
-            if (my === epoch.current) {
-              const fresh = await reloadMarksAction(sessionToken);
-              if (!("error" in fresh) && my === epoch.current) {
-                silent.current = true;
-                store.hydrate(fresh.marks);
-                setRecent(fresh.recent);
-              }
-            }
+            if (my === epoch.current) await restore();
             return;
           }
           if (my !== epoch.current) return;
-          for (const [code, count] of result.counts) store.set(code, count);
+          for (const [code, count] of result.counts) personal.set(code, count);
+          if (result.teamCounts) {
+            for (const [code, count] of result.teamCounts) teamStore.set(code, count);
+          }
           remember(result.counts.map(([code]) => code));
         } catch {
           toast.error("Couldn’t save that daub.");
           if (my === epoch.current) {
             try {
-              const fresh = await reloadMarksAction(sessionToken);
-              if (!("error" in fresh) && my === epoch.current) {
-                silent.current = true;
-                store.hydrate(fresh.marks);
-                setRecent(fresh.recent);
-              }
+              await restore();
             } catch {
               /* Leave the optimistic squares in place. */
             }
@@ -160,7 +208,7 @@ function BoardShell({
         }
       });
     },
-    [remember, sessionToken, store],
+    [personal, remember, sessionToken, setTeam, silent, team, teamStore],
   );
 
   useEffect(() => {
@@ -262,7 +310,7 @@ function BoardShell({
       : spanLabel(pageStart(block, page), pageStart(block, page) + 100);
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className={tone === "blue" ? "team-board flex min-h-dvh flex-col" : "flex min-h-dvh flex-col"}>
       <header className="masthead flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <button
           type="button"
@@ -271,8 +319,40 @@ function BoardShell({
           aria-label="Back to the full grid"
           data-testid="wordmark"
         >
-          <Wordmark plain />
+          <Wordmark plain tone={tone} />
         </button>
+        {team ? (
+          <div className="flex items-center gap-1 rounded-lg bg-white/10 p-0.5" data-testid="card-switch">
+            <button
+              type="button"
+              data-testid="view-mine"
+              aria-pressed={tone === "green"}
+              className={`rounded-md px-2.5 py-1 text-sm font-medium ${tone === "green" ? "bg-white text-[#14211b]" : "text-[#f4f7f2]"}`}
+              onClick={() => onView("mine")}
+            >
+              You
+            </button>
+            <button
+              type="button"
+              data-testid="view-team"
+              aria-pressed={tone === "blue"}
+              className={`max-w-36 truncate rounded-md px-2.5 py-1 text-sm font-medium ${tone === "blue" ? "bg-white text-[#142033]" : "text-[#f4f7f2]"}`}
+              onClick={() => onView("team")}
+            >
+              {team.name}
+            </button>
+          </div>
+        ) : null}
+        <TeamDialog
+          sessionToken={sessionToken}
+          team={team}
+          onTeam={(next) => {
+            teamStore.hydrate(next?.marks ?? []);
+            setTeamRecent(next?.recent ?? []);
+            setTeam(next);
+            if (!next) onView("mine");
+          }}
+        />
         <p className="font-mono text-sm text-[#c9ddd0]" data-testid="filled-count">
           {analysis.filled.toLocaleString()} / 1,000,000
           <span className="text-[#8eaa98]"> · {percent}</span>
@@ -336,11 +416,14 @@ function BoardShell({
             onOpen={openCell}
             onSelect={selectCell}
             onRemove={(index) => registerCell(index, -1)}
+            tone={tone}
           />
           <p className="mt-3 text-xs text-[#4d6156]">
             {zoom.level === 2
               ? "Click a number to select it. + adds one, − takes one back."
-              : "Pale green is a start. Deep green means that square is full."}
+              : tone === "blue"
+                ? "Pale blue is a start. Deep blue means that square is full."
+                : "Pale green is a start. Deep green means that square is full."}
           </p>
         </section>
 
@@ -349,6 +432,7 @@ function BoardShell({
             <CodeEntry onFind={onFind} />
             <FocusReadout
               code={focusCode}
+              ownStore={personal}
               onRegister={(delta) => {
                 if (focusCode === null || zoom.level !== 2) return;
                 registerCell(cellIndex(focusCode), delta);
@@ -364,7 +448,9 @@ function BoardShell({
           <section className="ticket rounded-2xl p-4">
             <h2 className="text-xl font-medium leading-tight text-[#14211b]">Last 20</h2>
             {recent.length === 0 ? (
-              <p className="mt-2 text-sm text-[#4d6156]">Codes you register show up here.</p>
+              <p className="mt-2 text-sm text-[#4d6156]">
+                {tone === "blue" ? "Codes the team registers show up here." : "Codes you register show up here."}
+              </p>
             ) : (
               <ul className="mt-3 grid grid-cols-4 gap-1.5" data-testid="recent-grid">
                 {recent.map((item) => (
@@ -373,7 +459,7 @@ function BoardShell({
                       type="button"
                       onClick={() => locate(item.code)}
                       aria-label={`${formatCode(item.code)}, marked ${formatMarkDay(item.markedAt)}`}
-                      className="flex w-full flex-col items-center rounded-lg bg-[#e7f3ea] px-0.5 py-2 text-center hover:bg-[#d5eadc]"
+                      className="flex w-full flex-col items-center rounded-lg bg-secondary px-0.5 py-2 text-center hover:bg-muted"
                     >
                       <span className="text-xs leading-none tracking-tight text-[#4d6156] tabular-nums whitespace-nowrap sm:text-sm">
                         {formatMarkDay(item.markedAt)}
@@ -432,7 +518,7 @@ function Crumb({
     <button
       type="button"
       onClick={onClick}
-      className="font-mono text-xs text-[#1f7a45] underline-offset-2 hover:underline"
+      className="font-mono text-xs text-primary underline-offset-2 hover:underline"
     >
       {children}
     </button>
@@ -441,12 +527,19 @@ function Crumb({
 
 function FocusReadout({
   code,
+  ownStore,
   onRegister,
 }: {
   code: number | null;
+  ownStore: CardStore;
   onRegister: (delta: 1 | -1) => void;
 }) {
   const count = useCount(code);
+  const ownCount = useSyncExternalStore(
+    ownStore.subscribe,
+    () => (code === null ? 0 : ownStore.get(code)),
+    () => 0,
+  );
   if (code === null) return null;
   return (
     <div className="mt-4 border-t border-[#c5d6c9] pt-4" data-testid="active-square">
@@ -459,7 +552,7 @@ function FocusReadout({
           variant="outline"
           aria-label="Take one back"
           data-testid="count-minus"
-          disabled={count === 0}
+          disabled={ownCount === 0}
           onClick={() => onRegister(-1)}
         >
           −

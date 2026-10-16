@@ -13,10 +13,12 @@ import {
 import { databaseMessage, getDb } from "@/lib/db";
 import { claimDailyFreebie } from "@/lib/marks-data";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
-import { parseCode } from "@/lib/codes";
 import { createSecret, verifyTotp } from "@/lib/totp";
 import { unusedUsername } from "@/lib/account-name";
+import { parseCode } from "@/lib/codes";
+import { checkEmailCode, clearEmailChallenge, deliverEmailCode } from "@/lib/email-signin";
 import { usernameFromGoogle } from "@/lib/google-username";
+import { EMAIL_SENDER_MISSING, emailDelivery } from "@/lib/mail";
 import { normalizeEmail, validateEmail, validatePassword } from "@/lib/validators";
 
 export type AuthState = {
@@ -32,6 +34,16 @@ type UserRow = {
   totp_secret: string | null;
   totp_confirmed: number;
   totp_login: number;
+};
+
+type LoginRow = {
+  id: number;
+  password_hash: string;
+  totp_secret: string | null;
+  totp_confirmed: number;
+  totp_login: number;
+  email_login: number;
+  email: string | null;
 };
 
 async function loadUser(id: number): Promise<UserRow | undefined> {
@@ -82,7 +94,7 @@ export async function registerAction(
 ): Promise<AuthState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
-  const wantsAuthenticator = formData.get("authenticator") === "on";
+  const factor = String(formData.get("factor") ?? "password");
   const blocked = await databaseBlock();
   if (blocked) return blocked;
   const emailError = validateEmail(email);
@@ -93,6 +105,12 @@ export async function registerAction(
       passwordError: passwordError ?? undefined,
     };
   }
+  if (factor !== "password" && factor !== "authenticator" && factor !== "email") {
+    return { error: "Choose a password, an authenticator app, or email." };
+  }
+  if (factor === "email" && emailDelivery() === "unavailable") {
+    return { error: EMAIL_SENDER_MISSING };
+  }
 
   const db = await getDb();
   const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE email = ?", [email]);
@@ -100,18 +118,32 @@ export async function registerAction(
 
   const username = await unusedUsername(db, usernameFromGoogle({ email, sub: email }));
   const passwordHash = await hashPassword(password);
-  if (!wantsAuthenticator) {
+  if (factor === "password") {
     const result = await db.run(
-      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login, email) VALUES (?, ?, 0, 0, ?)",
+      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login, email_login, email) VALUES (?, ?, 0, 0, 0, ?)",
       [username, passwordHash, email],
     );
     const token = await createSession(result.lastInsertRowid);
     redirect(`/board?session=${token}`);
   }
 
+  if (factor === "email") {
+    const result = await db.run(
+      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login, email_login, email) VALUES (?, ?, 0, 0, 1, ?)",
+      [username, passwordHash, email],
+    );
+    const userId = Number(result.lastInsertRowid);
+    const issued = await deliverEmailCode(userId, email);
+    if (!issued.ok) {
+      await db.run("DELETE FROM users WHERE id = ?", [userId]);
+      return { error: issued.error };
+    }
+    redirect(`/login/email?ticket=${issued.ticket}`);
+  }
+
   const secret = createSecret();
   const result = await db.run(
-    "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login, email) VALUES (?, ?, ?, 0, 1, ?)",
+    "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login, email_login, email) VALUES (?, ?, ?, 0, 1, 0, ?)",
     [username, passwordHash, secret, email],
   );
   const ticket = await beginPending(Number(result.lastInsertRowid), "enroll");
@@ -132,13 +164,13 @@ export async function loginAction(
 
   const db = await getDb();
   const row = identity.includes("@")
-    ? await db.get<UserRow>(
-        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
+    ? await db.get<LoginRow>(
+        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login, email_login, email
          FROM users WHERE email = ?`,
         [normalizeEmail(identity)],
       )
-    : await db.get<UserRow>(
-        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
+    : await db.get<LoginRow>(
+        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login, email_login, email
          FROM users WHERE username = ?`,
         [identity],
       );
@@ -154,6 +186,13 @@ export async function loginAction(
     }
     const ticket = await beginPending(Number(row.id), "login");
     redirect(`/login/code?ticket=${ticket}`);
+  }
+
+  if (Number(row.email_login) === 1) {
+    if (!row.email) return { error: "This account asks for an email code, but no address is saved." };
+    const issued = await deliverEmailCode(Number(row.id), String(row.email));
+    if (!issued.ok) return { error: issued.error };
+    redirect(`/login/email?ticket=${issued.ticket}`);
   }
 
   const token = await createSession(Number(row.id));
@@ -180,7 +219,8 @@ export async function enrollAction(
   }
 
   const db = await getDb();
-  await db.run("UPDATE users SET totp_confirmed = 1, totp_login = 1 WHERE id = ?", [user.id]);
+  await db.run("UPDATE users SET totp_confirmed = 1, totp_login = 1, email_login = 0 WHERE id = ?", [user.id]);
+  await clearEmailChallenge(user.id);
   const code = parseCode(digits);
   if (code !== null) await claimDailyFreebie(user.id, code);
   await clearPending(pending?.token ?? ticket);
@@ -208,6 +248,44 @@ export async function loginCodeAction(
   redirect(`/board?session=${token}`);
 }
 
+export async function emailCodeAction(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const ticket = String(formData.get("ticket") ?? "");
+  const pending = await readPending(ticket);
+  if (!pending || pending.purpose !== "login") redirect("/login");
+  const result = await checkEmailCode(pending.userId, String(formData.get("code") ?? ""));
+  if (result === "expired") return { error: "That code has expired. Send another." };
+  if (result === "locked") return { error: "Too many tries. Send another code." };
+  if (result !== "ok") return { error: "That code doesn’t match." };
+
+  const digits = String(formData.get("code") ?? "").replace(/\D/g, "");
+  const code = parseCode(digits);
+  if (code !== null) await claimDailyFreebie(pending.userId, code);
+  await clearPending(pending.token);
+  const token = await createSession(pending.userId);
+  redirect(`/board?session=${token}`);
+}
+
+export async function resendEmailCodeAction(formData: FormData): Promise<void> {
+  const ticket = String(formData.get("ticket") ?? "");
+  const pending = await readPending(ticket);
+  if (!pending || pending.purpose !== "login") redirect("/login");
+  const db = await getDb();
+  const row = await db.get<{ email: string | null; email_login: number }>(
+    "SELECT email, email_login FROM users WHERE id = ?",
+    [pending.userId],
+  );
+  if (!row?.email || Number(row.email_login) !== 1) redirect("/login");
+  const issued = await deliverEmailCode(pending.userId, String(row.email));
+  if (!issued.ok) {
+    const notice = issued.error.startsWith("Wait") ? "wait" : "send";
+    redirect(`/login/email?ticket=${pending.token}&notice=${notice}`);
+  }
+  redirect(`/login/email?ticket=${issued.ticket}`);
+}
+
 export async function touchSessionAction(sessionToken: string): Promise<void> {
   await renewSession(sessionToken);
 }
@@ -219,31 +297,62 @@ export async function passwordOnlyAction(formData: FormData): Promise<void> {
   const userId = pending?.userId ?? session?.id ?? null;
   if (userId === null) redirect("/login");
   const db = await getDb();
-  await db.run("UPDATE users SET totp_login = 0 WHERE id = ?", [userId]);
+  await db.run("UPDATE users SET totp_login = 0, email_login = 0 WHERE id = ?", [userId]);
+  await clearEmailChallenge(userId);
   await clearPending(pending?.token ?? ticket);
   if (session) await destroySession(session.token);
   const token = await createSession(userId);
   redirect(`/board?session=${token}`);
 }
 
-export async function setAuthenticatorAction(formData: FormData): Promise<void> {
+export async function setFactorAction(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
   const sessionToken = String(formData.get("session") ?? "");
   const user = await readSessionUser(sessionToken);
   if (!user) redirect("/login");
-  const enable = String(formData.get("enabled") ?? "") === "1";
-  if (!enable) {
-    const db = await getDb();
-    await db.run("UPDATE users SET totp_login = 0 WHERE id = ?", [user.id]);
+  const factor = String(formData.get("factor") ?? "");
+  const db = await getDb();
+
+  if (factor === "password") {
+    await db.run("UPDATE users SET totp_login = 0, email_login = 0 WHERE id = ?", [user.id]);
+    await clearEmailChallenge(user.id);
     redirect(`/board?session=${user.token}`);
   }
-  if (user.totpConfirmed) {
-    const db = await getDb();
-    await db.run("UPDATE users SET totp_login = 1 WHERE id = ?", [user.id]);
+
+  if (factor === "authenticator") {
+    if (user.totpConfirmed) {
+      await db.run("UPDATE users SET totp_login = 1, email_login = 0 WHERE id = ?", [user.id]);
+      await clearEmailChallenge(user.id);
+      redirect(`/board?session=${user.token}`);
+    }
+    await ensureSecret(user.id);
+    const ticket = await beginPending(user.id, "enroll");
+    redirect(`/setup?ticket=${ticket}`);
+  }
+
+  if (factor === "email") {
+    let email = user.email ? normalizeEmail(user.email) : "";
+    const typed = normalizeEmail(String(formData.get("accountEmail") ?? ""));
+    if (!email && typed) {
+      const emailError = validateEmail(typed);
+      if (emailError) return { error: emailError };
+      const taken = await db.get<{ id: number }>(
+        "SELECT id FROM users WHERE email = ? AND id != ?",
+        [typed, user.id],
+      );
+      if (taken) return { error: "That email already has a card." };
+      await db.run("UPDATE users SET email = ? WHERE id = ?", [typed, user.id]);
+      email = typed;
+    }
+    if (!email) return { error: "Add the email address the code should go to." };
+    if (emailDelivery() === "unavailable") return { error: EMAIL_SENDER_MISSING };
+    await db.run("UPDATE users SET totp_login = 0, email_login = 1 WHERE id = ?", [user.id]);
     redirect(`/board?session=${user.token}`);
   }
-  await ensureSecret(user.id);
-  const ticket = await beginPending(user.id, "enroll");
-  redirect(`/setup?ticket=${ticket}`);
+
+  return { error: "Choose a password, an authenticator app, or email." };
 }
 
 export async function logoutAction(formData: FormData): Promise<void> {

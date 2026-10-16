@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { logoutAction, setAuthenticatorAction, touchSessionAction } from "@/app/actions/auth";
+import { logoutAction, touchSessionAction } from "@/app/actions/auth";
 import {
   daubManyAction,
   importMarksAction,
@@ -19,6 +19,7 @@ import {
 import { CodeEntry } from "@/components/code-entry";
 import { LocatorGrid, type Zoom } from "@/components/locator-grid";
 import { RulesDialog } from "@/components/rules-dialog";
+import { SignInChoice } from "@/components/sign-in-choice";
 import { StampOverlay } from "@/components/stamp-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,8 @@ export function BoardApp({
   username,
   sessionToken,
   authenticatorLogin,
+  emailLogin,
+  accountEmail,
   freebieCode,
   initialMarks,
   initialRecent,
@@ -53,6 +56,8 @@ export function BoardApp({
   username: string;
   sessionToken: string;
   authenticatorLogin: boolean;
+  emailLogin: boolean;
+  accountEmail: string | null;
   freebieCode: number | null;
   initialMarks: [number, number][];
   initialRecent: Recent[];
@@ -64,6 +69,8 @@ export function BoardApp({
         username={username}
         sessionToken={sessionToken}
         authenticatorLogin={authenticatorLogin}
+        emailLogin={emailLogin}
+        accountEmail={accountEmail}
         freebieCode={freebieCode}
         initialRecent={initialRecent}
       />
@@ -75,12 +82,16 @@ function BoardShell({
   username,
   sessionToken,
   authenticatorLogin,
+  emailLogin,
+  accountEmail,
   freebieCode,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
   authenticatorLogin: boolean;
+  emailLogin: boolean;
+  accountEmail: string | null;
   freebieCode: number | null;
   initialRecent: Recent[];
 }) {
@@ -446,19 +457,20 @@ function BoardShell({
               <p className="mt-3 text-sm text-muted-foreground">
                 The authenticator code you log in with is marked once each day.
               </p>
-            ) : null}
-            <form action={setAuthenticatorAction} className="mt-3">
-              <input type="hidden" name="session" value={sessionToken} />
-              <input type="hidden" name="enabled" value={authenticatorLogin ? "0" : "1"} />
-              <p className="text-sm text-[#4d6156]">
-                {authenticatorLogin
-                  ? "Authenticator sign-in is on."
-                  : "Authenticator sign-in is off. Turn it on if you want one code marked each day you log in."}
+            ) : emailLogin ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                The email code you log in with is marked once each day.
               </p>
-              <Button type="submit" variant="outline" size="sm" className="mt-2">
-                {authenticatorLogin ? "Turn it off" : "Turn it on"}
-              </Button>
-            </form>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                A password on its own is not marked.
+              </p>
+            )}
+            <SignInChoice
+              sessionToken={sessionToken}
+              factor={authenticatorLogin ? "authenticator" : emailLogin ? "email" : "password"}
+              accountEmail={accountEmail}
+            />
             <FocusReadout
               code={focusCode}
               onRegister={(delta) => {

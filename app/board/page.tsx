@@ -36,6 +36,8 @@ async function BoardGate({ searchParams }: { searchParams: Promise<Search> }) {
       username={user.username}
       sessionToken={user.token}
       authenticatorLogin={user.totpLogin}
+      emailLogin={user.emailLogin}
+      accountEmail={user.email}
       freebieCode={await todaysFreebie(user.id)}
       initialMarks={marks}
       initialRecent={recent}

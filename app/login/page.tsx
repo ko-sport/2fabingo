@@ -37,7 +37,7 @@ async function LoginGate({ searchParams }: { searchParams: Promise<Search> }) {
   return (
     <AuthShell
       title="Log in"
-      lede={`You stay signed in for ${SESSION_DAYS} days. Use your email and password, or continue with Google. Nothing is sent to the email. An authenticator app is optional, and only that code is marked once each day.`}
+      lede={`Stay signed in for ${SESSION_DAYS} days. Choose 2FA via an authenticator app or email, or just a password.`}
     >
       <GoogleSignIn />
       <AuthForm mode="login" action={loginAction} notice={googleNotice(error)} />

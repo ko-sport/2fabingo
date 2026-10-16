@@ -3,6 +3,7 @@ export function googleNotice(error: string): string | undefined {
     return "Google sign-in still needs a client ID and secret on the host.";
   }
   if (error === "google") return "Google sign-in didn’t finish. Try again.";
+  if (error === "email-send") return "The email code didn’t send. Try again in a moment.";
   return undefined;
 }
 

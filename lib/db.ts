@@ -19,7 +19,7 @@ export type SqlDb = {
   transaction<T>(fn: (tx: SqlDb) => Promise<T>): Promise<T>;
 };
 
-const CLIENT = 5;
+const CLIENT = 6;
 
 export class DatabaseConfigError extends Error {
   constructor(message: string) {
@@ -188,6 +188,17 @@ async function migrate(db: SqlDb, remote: boolean): Promise<void> {
   }
   if (!names.has("google_sub")) await apply("ALTER TABLE users ADD COLUMN google_sub TEXT");
   if (!names.has("email")) await apply("ALTER TABLE users ADD COLUMN email TEXT");
+  if (!names.has("email_login")) {
+    await apply("ALTER TABLE users ADD COLUMN email_login INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!names.has("email_code_hash")) await apply("ALTER TABLE users ADD COLUMN email_code_hash TEXT");
+  if (!names.has("email_code_expires")) {
+    await apply("ALTER TABLE users ADD COLUMN email_code_expires INTEGER");
+  }
+  if (!names.has("email_code_attempts")) {
+    await apply("ALTER TABLE users ADD COLUMN email_code_attempts INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!names.has("email_code_preview")) await apply("ALTER TABLE users ADD COLUMN email_code_preview TEXT");
   await apply("CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub ON users(google_sub)");
   await apply("CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email)");
 }

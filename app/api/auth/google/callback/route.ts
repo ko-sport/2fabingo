@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { beginPending, createSession } from "@/lib/auth";
 import { unusedUsername } from "@/lib/account-name";
 import { getDb } from "@/lib/db";
+import { deliverEmailCode } from "@/lib/email-signin";
 import { finishGoogleState, googleProfile, googleRedirectUri } from "@/lib/google";
 import { usernameFromGoogle } from "@/lib/google-username";
 import { hashPassword } from "@/lib/passwords";
@@ -12,6 +13,8 @@ type Account = {
   username: string;
   totp_confirmed: number;
   totp_login: number;
+  email_login: number;
+  email: string | null;
 };
 
 export async function GET(request: Request) {
@@ -38,6 +41,13 @@ export async function GET(request: Request) {
       const ticket = await beginPending(account.id, "login");
       return NextResponse.redirect(new URL(`/login/code?ticket=${ticket}`, request.url));
     }
+    if (account.email_login && account.email) {
+      const issued = await deliverEmailCode(account.id, account.email);
+      if (!issued.ok) {
+        return NextResponse.redirect(new URL("/login?error=email-send", request.url));
+      }
+      return NextResponse.redirect(new URL(`/login/email?ticket=${issued.ticket}`, request.url));
+    }
     const token = await createSession(account.id);
     return NextResponse.redirect(new URL(`/board?session=${token}`, request.url));
   } catch (error) {
@@ -53,7 +63,7 @@ async function accountForGoogle(profile: {
 }): Promise<Account> {
   const db = await getDb();
   const existing = await db.get<Account>(
-    "SELECT id, username, totp_confirmed, totp_login FROM users WHERE google_sub = ?",
+    "SELECT id, username, totp_confirmed, totp_login, email_login, email FROM users WHERE google_sub = ?",
     [profile.sub],
   );
   if (existing) return existing;
@@ -61,8 +71,8 @@ async function accountForGoogle(profile: {
   const username = await unusedUsername(db, usernameFromGoogle(profile));
   const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
   const result = await db.run(
-    `INSERT INTO users (username, password_hash, totp_confirmed, totp_login, google_sub, email)
-     VALUES (?, ?, 0, 0, ?, ?)`,
+    `INSERT INTO users (username, password_hash, totp_confirmed, totp_login, email_login, google_sub, email)
+     VALUES (?, ?, 0, 0, 0, ?, ?)`,
     [username, passwordHash, profile.sub, profile.email.toLowerCase()],
   );
   return {
@@ -70,5 +80,7 @@ async function accountForGoogle(profile: {
     username,
     totp_confirmed: 0,
     totp_login: 0,
+    email_login: 0,
+    email: profile.email.toLowerCase(),
   };
 }

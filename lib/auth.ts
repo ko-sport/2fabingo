@@ -17,6 +17,8 @@ export type PublicUser = {
   token: string;
   totpConfirmed: boolean;
   totpLogin: boolean;
+  emailLogin: boolean;
+  email: string | null;
 };
 
 export type PendingAuth = {
@@ -34,6 +36,8 @@ type SessionRow = {
   expires_at: number;
   totp_confirmed: number;
   totp_login: number;
+  email_login: number;
+  email: string | null;
 };
 
 async function sessionCookieOptions() {
@@ -98,7 +102,8 @@ async function userForToken(token: string): Promise<PublicUser | null> {
   const row = await db.get<SessionRow>(
     `SELECT users.id AS id, users.username AS username,
             sessions.expires_at AS expires_at, users.totp_confirmed AS totp_confirmed,
-            users.totp_login AS totp_login
+            users.totp_login AS totp_login, users.email_login AS email_login,
+            users.email AS email
      FROM sessions
      JOIN users ON users.id = sessions.user_id
      WHERE sessions.token = ?`,
@@ -112,6 +117,8 @@ async function userForToken(token: string): Promise<PublicUser | null> {
     token,
     totpConfirmed: Number(row.totp_confirmed) === 1,
     totpLogin: Number(row.totp_login) === 1,
+    emailLogin: Number(row.email_login) === 1,
+    email: row.email ? String(row.email) : null,
   };
 }
 

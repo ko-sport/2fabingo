@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { loginCodeAction, passwordOnlyAction } from "@/app/actions/auth";
 import { readPending } from "@/lib/auth";
+import { challengeKind } from "@/lib/email-signin";
 import { AuthShell } from "@/components/auth-shell";
 import { blockedDatabase } from "@/components/database-notice";
 import { TotpForm } from "@/components/totp-form";
@@ -37,6 +38,9 @@ async function CodeGate({ searchParams }: { searchParams: Promise<Search> }) {
   const ticket = firstParam((await searchParams).ticket);
   const pending = await readPending(ticket);
   if (!pending || pending.purpose !== "login") redirect("/login");
+  const kind = await challengeKind(pending.userId);
+  if (kind === "email") redirect(`/login/email?ticket=${pending.token}`);
+  if (kind !== "authenticator") redirect("/login");
   return (
     <AuthShell
       title="Today’s code"

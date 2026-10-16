@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { AuthState } from "@/app/actions/auth";
+import { FactorFields } from "@/components/factor-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +45,7 @@ export function AuthForm({
         ) : (
           <p className="text-sm text-muted-foreground">
             {mode === "register"
-              ? "Any email address. We don’t send you anything."
+              ? "A code is sent here only if you choose email."
               : "An older username still works."}
           </p>
         )}
@@ -71,17 +72,12 @@ export function AuthForm({
         )}
       </div>
       {mode === "register" ? (
-        <label className="flex items-start gap-2 text-sm text-[#14211b]">
-          <input
-            type="checkbox"
-            name="authenticator"
-            value="on"
-            className="mt-1 size-4 accent-[#1f7a45]"
-          />
-          <span>
-            Sign in with an authenticator. The code that signs you in is marked once each day.
-          </span>
-        </label>
+        <div className="flex flex-col gap-2">
+          <FactorFields defaultValue="password" />
+          <p className="text-sm text-muted-foreground">
+            A code from the app or from email is marked once each day. A password on its own is not.
+          </p>
+        </div>
       ) : null}
       {notice ? (
         <p className="text-sm text-destructive" role="alert">

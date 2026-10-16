@@ -365,18 +365,17 @@ function BoardShell({
             {recent.length === 0 ? (
               <p className="mt-2 text-sm text-[#4d6156]">Codes you register show up here.</p>
             ) : (
-              <ul className="mt-2 flex flex-col gap-1">
+              <ul className="mt-3 grid grid-cols-4 gap-1.5" data-testid="recent-grid">
                 {recent.map((item) => (
                   <li key={item.code}>
                     <button
                       type="button"
                       onClick={() => locate(item.code)}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left font-mono text-sm text-[#14211b] hover:bg-[#e7f3ea]"
+                      aria-label={`${formatCode(item.code)}, registered ${item.count} ${item.count === 1 ? "time" : "times"}`}
+                      className="flex w-full flex-col items-center rounded-lg bg-[#e7f3ea] px-1 py-2 text-center font-mono hover:bg-[#d5eadc]"
                     >
-                      <span>{formatCode(item.code)}</span>
-                      <span className="text-[#4d6156]">
-                        {item.count > 1 ? `${item.count}×` : "1×"}
-                      </span>
+                      <span className="text-sm tracking-tight text-[#14211b]">{formatCode(item.code)}</span>
+                      <span className="mt-0.5 text-xs text-[#4d6156]">{item.count}×</span>
                     </button>
                   </li>
                 ))}

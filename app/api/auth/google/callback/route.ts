@@ -1,20 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { beginPending, createSession } from "@/lib/auth";
+import { createSession } from "@/lib/auth";
 import { unusedUsername } from "@/lib/account-name";
 import { getDb } from "@/lib/db";
-import { deliverEmailCode } from "@/lib/email-signin";
 import { finishGoogleState, googleProfile, googleRedirectUri } from "@/lib/google";
 import { usernameFromGoogle } from "@/lib/google-username";
 import { hashPassword } from "@/lib/passwords";
 
 type Account = {
   id: number;
-  username: string;
-  totp_confirmed: number;
-  totp_login: number;
-  email_login: number;
-  email: string | null;
 };
 
 export async function GET(request: Request) {
@@ -33,21 +27,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/login?error=google", request.url));
     }
     const account = await accountForGoogle(profile);
-    if (account.totp_login && !account.totp_confirmed) {
-      const ticket = await beginPending(account.id, "enroll");
-      return NextResponse.redirect(new URL(`/setup?ticket=${ticket}`, request.url));
-    }
-    if (account.totp_login) {
-      const ticket = await beginPending(account.id, "login");
-      return NextResponse.redirect(new URL(`/login/code?ticket=${ticket}`, request.url));
-    }
-    if (account.email_login && account.email) {
-      const issued = await deliverEmailCode(account.id, account.email);
-      if (!issued.ok) {
-        return NextResponse.redirect(new URL("/login?error=email-send", request.url));
-      }
-      return NextResponse.redirect(new URL(`/login/email?ticket=${issued.ticket}`, request.url));
-    }
     const token = await createSession(account.id);
     return NextResponse.redirect(new URL(`/board?session=${token}`, request.url));
   } catch (error) {
@@ -62,10 +41,7 @@ async function accountForGoogle(profile: {
   name: string;
 }): Promise<Account> {
   const db = await getDb();
-  const existing = await db.get<Account>(
-    "SELECT id, username, totp_confirmed, totp_login, email_login, email FROM users WHERE google_sub = ?",
-    [profile.sub],
-  );
+  const existing = await db.get<Account>("SELECT id FROM users WHERE google_sub = ?", [profile.sub]);
   if (existing) return existing;
 
   const username = await unusedUsername(db, usernameFromGoogle(profile));
@@ -75,12 +51,5 @@ async function accountForGoogle(profile: {
      VALUES (?, ?, 0, 0, 0, ?, ?)`,
     [username, passwordHash, profile.sub, profile.email.toLowerCase()],
   );
-  return {
-    id: Number(result.lastInsertRowid),
-    username,
-    totp_confirmed: 0,
-    totp_login: 0,
-    email_login: 0,
-    email: profile.email.toLowerCase(),
-  };
+  return { id: Number(result.lastInsertRowid) };
 }

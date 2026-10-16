@@ -19,7 +19,6 @@ import {
 import { CodeEntry } from "@/components/code-entry";
 import { LocatorGrid, type Zoom } from "@/components/locator-grid";
 import { RulesDialog } from "@/components/rules-dialog";
-import { SignInChoice } from "@/components/sign-in-choice";
 import { StampOverlay } from "@/components/stamp-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
@@ -46,34 +45,18 @@ type Stamp = { title: string; detail: string };
 export function BoardApp({
   username,
   sessionToken,
-  authenticatorLogin,
-  emailLogin,
-  accountEmail,
-  freebieCode,
   initialMarks,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
-  authenticatorLogin: boolean;
-  emailLogin: boolean;
-  accountEmail: string | null;
-  freebieCode: number | null;
   initialMarks: [number, number][];
   initialRecent: Recent[];
 }) {
   const [store] = useState(() => new CardStore(initialMarks));
   return (
     <CardStoreProvider store={store}>
-      <BoardShell
-        username={username}
-        sessionToken={sessionToken}
-        authenticatorLogin={authenticatorLogin}
-        emailLogin={emailLogin}
-        accountEmail={accountEmail}
-        freebieCode={freebieCode}
-        initialRecent={initialRecent}
-      />
+      <BoardShell username={username} sessionToken={sessionToken} initialRecent={initialRecent} />
     </CardStoreProvider>
   );
 }
@@ -81,18 +64,10 @@ export function BoardApp({
 function BoardShell({
   username,
   sessionToken,
-  authenticatorLogin,
-  emailLogin,
-  accountEmail,
-  freebieCode,
   initialRecent,
 }: {
   username: string;
   sessionToken: string;
-  authenticatorLogin: boolean;
-  emailLogin: boolean;
-  accountEmail: string | null;
-  freebieCode: number | null;
   initialRecent: Recent[];
 }) {
   const store = useCardStore();
@@ -438,39 +413,6 @@ function BoardShell({
         <aside className="order-1 flex flex-col gap-4 lg:order-1">
           <div className="ticket rounded-2xl p-4">
             <CodeEntry onFind={onFind} />
-            {freebieCode !== null ? (
-              <div className="mt-3 rounded-lg bg-[#e5f6eb] px-3 py-2 text-sm text-[#0f5c36]">
-                <p data-testid="freebie">
-                  Today’s freebie{" "}
-                  <span className="font-mono tracking-wide">{formatCode(freebieCode)}</span>{" "}
-                  was daubed when you logged in.
-                </p>
-                <button
-                  type="button"
-                  className="mt-1 font-medium underline underline-offset-2"
-                  onClick={() => locate(freebieCode)}
-                >
-                  Show it
-                </button>
-              </div>
-            ) : authenticatorLogin ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                The authenticator code you log in with is marked once each day.
-              </p>
-            ) : emailLogin ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                The code emailed to you at sign-in is marked once each day.
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                A password on its own is not marked.
-              </p>
-            )}
-            <SignInChoice
-              sessionToken={sessionToken}
-              factor={authenticatorLogin ? "authenticator" : emailLogin ? "email" : "password"}
-              accountEmail={accountEmail}
-            />
             <FocusReadout
               code={focusCode}
               onRegister={(delta) => {

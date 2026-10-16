@@ -15,10 +15,6 @@ export type PublicUser = {
   id: number;
   username: string;
   token: string;
-  totpConfirmed: boolean;
-  totpLogin: boolean;
-  emailLogin: boolean;
-  email: string | null;
 };
 
 export type PendingAuth = {
@@ -34,10 +30,6 @@ type SessionRow = {
   id: number;
   username: string;
   expires_at: number;
-  totp_confirmed: number;
-  totp_login: number;
-  email_login: number;
-  email: string | null;
 };
 
 async function sessionCookieOptions() {
@@ -101,9 +93,7 @@ async function userForToken(token: string): Promise<PublicUser | null> {
   const db = await getDb();
   const row = await db.get<SessionRow>(
     `SELECT users.id AS id, users.username AS username,
-            sessions.expires_at AS expires_at, users.totp_confirmed AS totp_confirmed,
-            users.totp_login AS totp_login, users.email_login AS email_login,
-            users.email AS email
+            sessions.expires_at AS expires_at
      FROM sessions
      JOIN users ON users.id = sessions.user_id
      WHERE sessions.token = ?`,
@@ -115,10 +105,6 @@ async function userForToken(token: string): Promise<PublicUser | null> {
     id: Number(row.id),
     username: String(row.username),
     token,
-    totpConfirmed: Number(row.totp_confirmed) === 1,
-    totpLogin: Number(row.totp_login) === 1,
-    emailLogin: Number(row.email_login) === 1,
-    email: row.email ? String(row.email) : null,
   };
 }
 
@@ -155,13 +141,11 @@ export async function readSessionUser(
 export async function getCurrentUser(fallbackToken?: string | null): Promise<PublicUser> {
   const user = await readSessionUser(fallbackToken);
   if (!user) redirect("/login");
-  if (user.totpLogin && !user.totpConfirmed) redirect("/setup");
   return user;
 }
 
 export function redirectSignedIn(user: PublicUser | null): void {
   if (!user) return;
-  if (user.totpLogin && !user.totpConfirmed) redirect("/setup");
   redirect(`/board?session=${user.token}`);
 }
 

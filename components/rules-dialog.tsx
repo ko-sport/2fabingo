@@ -60,9 +60,8 @@ export function RulesDialog() {
         </p>
         <p className="text-sm text-muted-foreground">
           You stay signed in for 30 days, and coming back starts that again.
-          Choose an authenticator app, a code emailed to you, or just a password.
-          The first code that signs you in each day is registered for you.
-          Google still opens a card, and that sign-in does not mark a square.
+          Sign in with an email and a password, or with Google. Codes are ones you
+          already collect. Signing in does not mark a square.
         </p>
       </DialogContent>
     </Dialog>

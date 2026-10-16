@@ -76,47 +76,6 @@ export async function applyGrouped(
   });
 }
 
-export function utcDay(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
-}
-
-export async function claimDailyFreebie(userId: number, code: number): Promise<boolean> {
-  if (!Number.isInteger(code) || code < 0 || code > 999999) return false;
-  const today = utcDay();
-  const db = await getDb();
-  return db.transaction(async (tx) => {
-    const row = await tx.get<{ freebie_on: string | null }>(
-      "SELECT freebie_on FROM users WHERE id = ?",
-      [userId],
-    );
-    if (!row || row.freebie_on === today) return false;
-    await tx.run(
-      `INSERT INTO marks (user_id, code, count, updated_at)
-       VALUES (?, ?, 1, datetime('now'))
-       ON CONFLICT(user_id, code) DO UPDATE SET
-         count = MIN(${MAX_COUNT}, count + 1),
-         updated_at = datetime('now')`,
-      [userId, code],
-    );
-    await tx.run("UPDATE users SET freebie_on = ?, freebie_code = ? WHERE id = ?", [
-      today,
-      code,
-      userId,
-    ]);
-    return true;
-  });
-}
-
-export async function todaysFreebie(userId: number): Promise<number | null> {
-  const db = await getDb();
-  const row = await db.get<{ freebie_on: string | null; freebie_code: number | null }>(
-    "SELECT freebie_on, freebie_code FROM users WHERE id = ?",
-    [userId],
-  );
-  if (!row || row.freebie_on !== utcDay() || row.freebie_code == null) return null;
-  return Number(row.freebie_code);
-}
-
 export async function replaceMarks(userId: number, marks: [number, number][]): Promise<void> {
   const db = await getDb();
   await db.transaction(async (tx) => {

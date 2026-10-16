@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { AuthState } from "@/app/actions/auth";
-import { FactorFields } from "@/components/factor-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,7 +44,7 @@ export function AuthForm({
         ) : (
           <p className="text-sm text-muted-foreground">
             {mode === "register"
-              ? "A 6-digit sign-in code is emailed here when you pick Email me a code."
+              ? "Your sign-in address."
               : "An older username still works."}
           </p>
         )}
@@ -71,14 +70,6 @@ export function AuthForm({
           <p className="text-sm text-muted-foreground">At least 8 characters.</p>
         )}
       </div>
-      {mode === "register" ? (
-        <div className="flex flex-col gap-2">
-          <FactorFields defaultValue="password" />
-          <p className="text-sm text-muted-foreground">
-            A code from the app, or a code we email you, is marked once each day. A password on its own is not.
-          </p>
-        </div>
-      ) : null}
       {notice ? (
         <p className="text-sm text-destructive" role="alert">
           {notice}

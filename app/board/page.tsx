@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
-import { listMarks, listRecent, todaysFreebie } from "@/lib/marks-data";
+import { listMarks, listRecent } from "@/lib/marks-data";
 import { BoardApp } from "@/components/board-app";
 import { BoardFallback } from "@/components/board-fallback";
 import { blockedDatabase } from "@/components/database-notice";
@@ -35,10 +35,6 @@ async function BoardGate({ searchParams }: { searchParams: Promise<Search> }) {
     <BoardApp
       username={user.username}
       sessionToken={user.token}
-      authenticatorLogin={user.totpLogin}
-      emailLogin={user.emailLogin}
-      accountEmail={user.email}
-      freebieCode={await todaysFreebie(user.id)}
       initialMarks={marks}
       initialRecent={recent}
     />

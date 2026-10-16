@@ -45,7 +45,7 @@ export function AuthForm({
         ) : (
           <p className="text-sm text-muted-foreground">
             {mode === "register"
-              ? "A code is sent here only if you choose email."
+              ? "A 6-digit sign-in code is emailed here when you pick Email me a code."
               : "An older username still works."}
           </p>
         )}
@@ -75,7 +75,7 @@ export function AuthForm({
         <div className="flex flex-col gap-2">
           <FactorFields defaultValue="password" />
           <p className="text-sm text-muted-foreground">
-            A code from the app or from email is marked once each day. A password on its own is not.
+            A code from the app, or a code we email you, is marked once each day. A password on its own is not.
           </p>
         </div>
       ) : null}

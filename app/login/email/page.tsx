@@ -46,7 +46,7 @@ async function EmailGate({ searchParams }: { searchParams: Promise<Search> }) {
   return (
     <AuthShell
       title="Code from your email"
-      lede={`Sent to ${maskEmail(challenge.email)}. It lasts 10 minutes. The first code that works each day is daubed.`}
+      lede={`Check ${maskEmail(challenge.email)} for a 6-digit code. It lasts 10 minutes. The first code that works each day is daubed.`}
     >
       {challenge.preview ? (
         <p

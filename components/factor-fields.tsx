@@ -3,7 +3,7 @@ import type { SignInFactor } from "@/lib/email-code";
 const OPTIONS: { value: SignInFactor; label: string }[] = [
   { value: "password", label: "Password only" },
   { value: "authenticator", label: "Authenticator app" },
-  { value: "email", label: "Email" },
+  { value: "email", label: "Email me a code" },
 ];
 
 export function FactorFields({ defaultValue }: { defaultValue: SignInFactor }) {

@@ -60,7 +60,7 @@ export function RulesDialog() {
         </p>
         <p className="text-sm text-muted-foreground">
           You stay signed in for 30 days, and coming back starts that again.
-          Choose 2FA via an authenticator app or email, or just a password.
+          Choose an authenticator app, a code emailed to you, or just a password.
           The first code that signs you in each day is registered for you.
           Google still opens a card, and that sign-in does not mark a square.
         </p>

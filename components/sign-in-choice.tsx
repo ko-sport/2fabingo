@@ -26,7 +26,7 @@ export function SignInChoice({
       <input type="hidden" name="session" value={sessionToken} />
       <FactorFields defaultValue={factor} />
       {accountEmail ? (
-        <p className="text-sm text-[#4d6156]">Email codes go to {accountEmail}.</p>
+        <p className="text-sm text-[#4d6156]">Sign-in codes are emailed to {accountEmail}.</p>
       ) : (
         <div className="flex flex-col gap-2">
           <Label htmlFor="accountEmail">Email for a code</Label>
@@ -39,7 +39,7 @@ export function SignInChoice({
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          A code from the app or from email is marked once each day. A password on its own is not.
+          A code from the app, or a code we email you, is marked once each day. A password on its own is not.
         </p>
       )}
       <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">

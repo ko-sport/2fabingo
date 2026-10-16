@@ -459,7 +459,7 @@ function BoardShell({
               </p>
             ) : emailLogin ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                The email code you log in with is marked once each day.
+                The code emailed to you at sign-in is marked once each day.
               </p>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">

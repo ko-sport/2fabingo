@@ -31,7 +31,7 @@ export function Achievements() {
 
   return (
     <div data-testid="progress">
-      <h2 className="font-heading text-xl text-[#14211b]">Keep track of your progress!</h2>
+      <h2 className="text-xl font-medium leading-tight text-[#14211b]">Keep track of your progress!</h2>
       <p className="mt-3 text-sm text-[#14211b]" data-testid="line-count">
         Number of lines: {snapshot.lines.toLocaleString()}
       </p>

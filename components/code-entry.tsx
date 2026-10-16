@@ -31,7 +31,9 @@ export function CodeEntry({ onFind }: { onFind: (code: string) => void }) {
       }}
       className="flex flex-col gap-2"
     >
-      <Label htmlFor="code">Find a code</Label>
+      <Label htmlFor="code" className="text-xl font-medium leading-tight text-[#14211b]">
+        Find a code
+      </Label>
       <div className="flex gap-2">
         <Input
           id="code"

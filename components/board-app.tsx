@@ -300,12 +300,12 @@ function BoardShell({
         <section className="ticket order-2 rounded-2xl p-3 sm:p-5 lg:order-2">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="font-heading text-2xl text-[#14211b]">Find manually</h2>
-              <p className="mt-1 text-sm text-[#4d6156]">
-                {zoom.level === 2
-                  ? "Select a number, then + adds one. Another mark makes it darker."
-                  : "Click on the boxes to locate your 2FA code."}
-              </p>
+              <h2 className="text-xl font-medium leading-tight text-[#14211b]">Find manually</h2>
+              {zoom.level === 2 ? null : (
+                <p className="mt-1 text-sm text-[#4d6156]">
+                  Click on the boxes to locate your 2FA code.
+                </p>
+              )}
             </div>
           </div>
           <nav aria-label="Which grid" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
@@ -361,7 +361,7 @@ function BoardShell({
             <Achievements />
           </div>
           <section className="ticket rounded-2xl p-4">
-            <h2 className="font-heading text-xl text-[#14211b]">Last 20</h2>
+            <h2 className="text-xl font-medium leading-tight text-[#14211b]">Last 20</h2>
             {recent.length === 0 ? (
               <p className="mt-2 text-sm text-[#4d6156]">Codes you register show up here.</p>
             ) : (

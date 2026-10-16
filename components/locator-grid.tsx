@@ -30,12 +30,12 @@ function useVersion() {
 export const LocatorGrid = memo(function LocatorGrid({
   zoom,
   onOpen,
-  onRegister,
+  onSelect,
   onRemove,
 }: {
   zoom: Zoom;
   onOpen: (index: number) => void;
-  onRegister: (index: number) => void;
+  onSelect: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
   const analysis = useAnalysis();
@@ -91,15 +91,16 @@ export const LocatorGrid = memo(function LocatorGrid({
             style={style}
             label={formatCode(code)}
             ariaLabel={
-              focused && count === 0
-                ? `${formatCode(code)}, click once more to register`
+              focused
+                ? count === 0
+                  ? `${formatCode(code)}, selected`
+                  : `${formatCode(code)}, selected, registered ${count} ${count === 1 ? "time" : "times"}`
                 : count === 0
                   ? `${formatCode(code)}, not registered`
                   : `${formatCode(code)}, registered ${count} ${count === 1 ? "time" : "times"}`
             }
             focused={focused}
-            tick={focused && count === 0}
-            onClick={() => onRegister(index)}
+            onClick={() => onSelect(index)}
             onContextMenu={() => onRemove(index)}
             lines={[formatCode(code)]}
             badge={count > 1 ? (count > 99 ? "99+" : `${count}×`) : null}
@@ -120,7 +121,6 @@ function Cell({
   lines,
   badge,
   focused,
-  tick,
   testId,
 }: {
   style: { background: string; color: string };
@@ -131,7 +131,6 @@ function Cell({
   lines: string[];
   badge?: string | null;
   focused?: boolean;
-  tick?: boolean;
   testId?: string;
 }) {
   return (
@@ -163,15 +162,6 @@ function Cell({
           {line}
         </span>
       ))}
-      {tick ? (
-        <span
-          data-testid="confirm-tick"
-          aria-hidden
-          className="absolute top-0.5 right-0.5 text-[10px] leading-none font-bold text-[#0f6b3c] sm:text-xs"
-        >
-          ✓
-        </span>
-      ) : null}
       {badge ? (
         <span className="mt-0.5 text-[8px] font-semibold sm:text-[10px]">{badge}</span>
       ) : null}

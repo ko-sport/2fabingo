@@ -235,6 +235,11 @@ function BoardShell({
     }
   }
 
+  function selectCell(index: number) {
+    if (zoom.level !== 2) return;
+    setZoom({ ...zoom, focus: cellCode(zoom.block, zoom.page, index) });
+  }
+
   function registerCell(index: number, delta: 1 | -1) {
     if (zoom.level !== 2) return;
     const code = cellCode(zoom.block, zoom.page, index);
@@ -370,7 +375,7 @@ function BoardShell({
               <h2 className="font-heading text-2xl text-[#14211b]">Find manually</h2>
               <p className="mt-1 text-sm text-[#4d6156]">
                 {zoom.level === 2
-                  ? "You can mark the same code more than once - it will go darker with every marking."
+                  ? "Select a number, then + adds one. Another mark makes it darker."
                   : "Click on the boxes to locate your 2FA code."}
               </p>
             </div>
@@ -400,12 +405,12 @@ function BoardShell({
           <LocatorGrid
             zoom={zoom}
             onOpen={openCell}
-            onRegister={(index) => registerCell(index, 1)}
+            onSelect={selectCell}
             onRemove={(index) => registerCell(index, -1)}
           />
           <p className="mt-3 text-xs text-[#4d6156]">
             {zoom.level === 2
-              ? "Right-click a number to take one registration back."
+              ? "Click a number to select it. + adds one, − takes one back."
               : "Pale green is a start. Deep green means that square is full."}
           </p>
         </section>
@@ -541,7 +546,7 @@ function FocusReadout({
   if (code === null) {
     return (
       <p className="mt-4 text-sm text-muted-foreground" data-testid="active-square">
-        Find a code, then click its square to register it.
+        Find a code, or click a square. + adds one.
       </p>
     );
   }
@@ -549,21 +554,29 @@ function FocusReadout({
     <div className="mt-4 border-t border-[#c5d6c9] pt-4" data-testid="active-square">
       <p className="font-mono text-2xl tracking-[0.18em] text-[#14211b]">{formatCode(code)}</p>
       <p className="mt-1 text-sm text-[#4d6156]">{spanLabel(code - cellIndex(code), code - cellIndex(code) + 100)}</p>
-      <p className="mt-1 font-mono text-sm text-[#146b43]">
-        {count === 0 ? "Not registered yet" : count === 1 ? "Registered once" : `${count}×`}
-      </p>
-      <div className="mt-3 flex gap-2">
-        <Button type="button" size="sm" onClick={() => onRegister(1)}>
-          {count === 0 ? "Register" : "Register again"}
-        </Button>
+      <div className="mt-3 flex items-center gap-2" data-testid="count-stepper">
         <Button
           type="button"
-          size="sm"
+          size="icon"
           variant="outline"
+          aria-label="Take one back"
+          data-testid="count-minus"
           disabled={count === 0}
           onClick={() => onRegister(-1)}
         >
-          Remove one
+          −
+        </Button>
+        <span className="min-w-10 text-center font-mono text-xl text-[#14211b]" data-testid="count-value">
+          {count}
+        </span>
+        <Button
+          type="button"
+          size="icon"
+          aria-label="Add one"
+          data-testid="count-plus"
+          onClick={() => onRegister(1)}
+        >
+          +
         </Button>
       </div>
     </div>

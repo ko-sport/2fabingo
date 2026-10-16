@@ -1,6 +1,6 @@
 # 2FA Bingo
 
-A million-square bingo card for the six-digit codes you collect through the day. You only ever see one 10×10 grid. Type `250417` and press Find to open `250400 to 250500`, then click `250417` to register it. You can mark the same code more than once - it will go darker with every marking.
+A million-square bingo card for the six-digit codes you collect through the day. You only ever see one 10×10 grid. Type `250417` and press Find to open `250400 to 250500` and select `250417`. **+** registers it. Another mark makes it darker.
 
 Create an account with an email and a password, or with Google. You stay signed in for 30 days. The card is where you register six-digit codes you already collect. Signing in does not mark a square. Older accounts can still sign in with the username.
 
@@ -29,7 +29,7 @@ Only one grid is on screen.
 
 `250417` is in the block `250000 to 260000`, the hundred `250400 to 250500`, and the square `250417`.
 
-**Find** opens that hundred and does not register the code. Click the square to register it. Click it again for `2×`, `3×`, and a darker green. Right-click, or **Remove one**, takes a registration back.
+**Find** opens that hundred and selects the square. It does not register the code. Clicking a square only selects it. **+** adds one. **−** takes one back when the count is already at least 1. Another mark makes the square darker.
 
 On the set and on a block, a square’s green is how much of it is already registered. A full hundred, a full block of 10,000, and the full set each get a stamp.
 

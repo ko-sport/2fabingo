@@ -22,7 +22,7 @@ const VIEWS = [
   {
     name: "A hundred codes",
     summary:
-      "Click a page. These are the exact numbers. Click one to register it. You can mark the same code more than once - it will go darker with every marking.",
+      "Click a page. These are the exact numbers. Click one to select it, then + adds a mark. Another mark makes it darker.",
   },
 ];
 
@@ -49,9 +49,8 @@ export function RulesDialog() {
           ))}
         </ul>
         <p className="text-sm text-muted-foreground">
-          Type a code and press Find. It takes you to that square. Click once
-          more to register it. A tick marks the square that is waiting. Right-click,
-          or Remove one, takes a registration back.
+          Type a code and press Find, or click a square. That selects it.
+          + adds one. − takes one back when that square already has a mark.
         </p>
         <p className="text-sm text-muted-foreground">
           On the two larger grids, green shows how much of that square is

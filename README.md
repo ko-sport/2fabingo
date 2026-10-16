@@ -2,7 +2,7 @@
 
 A million-square bingo card for the six-digit codes you collect through the day. You only ever see one 10×10 grid. Type `250417` and press Find to open `250400 to 250500`, then click `250417` to register it. You can mark the same code more than once - it will go darker with every marking.
 
-Create an account, pair an authenticator, and the card is still there when you come back. The code that signs you in is daubed once each day.
+Create an account with Google, or with a username and password. The site does not email a code. An authenticator app is optional. When that sign-in is on, the code from the app is daubed once each day. Google Authenticator works for that step.
 
 ## Run it
 
@@ -57,6 +57,9 @@ Then in the Netlify site set:
 
 - `TURSO_DATABASE_URL` to the `libsql://` address
 - `TURSO_AUTH_TOKEN` to the token
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for Sign in with Google
+
+In Google Cloud, create a web OAuth client. Authorized redirect URI: `https://2fabingo.co.uk/api/auth/google/callback`. The button stays hidden until both Google values are set and the site is deployed again. A Google sign-in opens a new card. It does not mark a square. The same Google account returns to that card later.
 
 Connect this project and deploy. Netlify detects Next.js. The build command is `npm run build`, and Node 22 is set in `netlify.toml`. Without those two variables the site says the card has no database yet, instead of failing with an empty server error.
 

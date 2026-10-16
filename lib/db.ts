@@ -19,7 +19,7 @@ export type SqlDb = {
   transaction<T>(fn: (tx: SqlDb) => Promise<T>): Promise<T>;
 };
 
-const CLIENT = 2;
+const CLIENT = 4;
 
 export class DatabaseConfigError extends Error {
   constructor(message: string) {
@@ -186,6 +186,9 @@ async function migrate(db: SqlDb, remote: boolean): Promise<void> {
     await apply("ALTER TABLE users ADD COLUMN totp_login INTEGER NOT NULL DEFAULT 0");
     await apply("UPDATE users SET totp_login = 1 WHERE totp_confirmed = 1");
   }
+  if (!names.has("google_sub")) await apply("ALTER TABLE users ADD COLUMN google_sub TEXT");
+  if (!names.has("email")) await apply("ALTER TABLE users ADD COLUMN email TEXT");
+  await apply("CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub ON users(google_sub)");
 }
 
 function hostedRuntime(): boolean {

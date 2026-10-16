@@ -1,0 +1,79 @@
+import { randomBytes } from "node:crypto";
+import { NextResponse } from "next/server";
+import { beginPending, createSession } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { finishGoogleState, googleProfile, googleRedirectUri } from "@/lib/google";
+import { nextUsername, usernameFromGoogle } from "@/lib/google-username";
+import { hashPassword } from "@/lib/passwords";
+
+type Account = {
+  id: number;
+  username: string;
+  totp_confirmed: number;
+  totp_login: number;
+};
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const sentState = url.searchParams.get("state") ?? "";
+  const code = url.searchParams.get("code") ?? "";
+  const denied = url.searchParams.get("error") === "access_denied";
+  const stateOk = await finishGoogleState(sentState);
+  if (denied || !stateOk || !code) {
+    return NextResponse.redirect(new URL("/login?error=google", request.url));
+  }
+
+  try {
+    const profile = await googleProfile(code, googleRedirectUri(request));
+    if (!profile.emailVerified) {
+      return NextResponse.redirect(new URL("/login?error=google", request.url));
+    }
+    const account = await accountForGoogle(profile);
+    if (account.totp_login && !account.totp_confirmed) {
+      const ticket = await beginPending(account.id, "enroll");
+      return NextResponse.redirect(new URL(`/setup?ticket=${ticket}`, request.url));
+    }
+    if (account.totp_login) {
+      const ticket = await beginPending(account.id, "login");
+      return NextResponse.redirect(new URL(`/login/code?ticket=${ticket}`, request.url));
+    }
+    const token = await createSession(account.id);
+    return NextResponse.redirect(new URL(`/board?session=${token}`, request.url));
+  } catch (error) {
+    console.error(error);
+    return NextResponse.redirect(new URL("/login?error=google", request.url));
+  }
+}
+
+async function accountForGoogle(profile: {
+  sub: string;
+  email: string;
+  name: string;
+}): Promise<Account> {
+  const db = await getDb();
+  const existing = await db.get<Account>(
+    "SELECT id, username, totp_confirmed, totp_login FROM users WHERE google_sub = ?",
+    [profile.sub],
+  );
+  if (existing) return existing;
+
+  const base = usernameFromGoogle(profile);
+  let username = base;
+  for (let taken = 2; taken < 1000; taken += 1) {
+    const row = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
+    if (!row) break;
+    username = nextUsername(base, taken);
+  }
+  const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
+  const result = await db.run(
+    `INSERT INTO users (username, password_hash, totp_confirmed, totp_login, google_sub, email)
+     VALUES (?, ?, 0, 0, ?, ?)`,
+    [username, passwordHash, profile.sub, profile.email],
+  );
+  return {
+    id: Number(result.lastInsertRowid),
+    username,
+    totp_confirmed: 0,
+    totp_login: 0,
+  };
+}

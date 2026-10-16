@@ -60,8 +60,9 @@ export function RulesDialog() {
         </p>
         <p className="text-sm text-muted-foreground">
           You stay signed in for 30 days, and coming back starts that again.
+          Sign in with Google, or with a username and password. Nothing is emailed.
           Authenticator sign-in is optional. When it is on, the first successful
-          code each day is registered for you.
+          code from that app each day is registered for you.
         </p>
       </DialogContent>
     </Dialog>

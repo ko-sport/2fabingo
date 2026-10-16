@@ -5,6 +5,8 @@ import { SESSION_DAYS } from "@/lib/session";
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 import { blockedDatabase } from "@/components/database-notice";
+import { GoogleSignIn } from "@/components/google-button";
+import { googleConfigured } from "@/lib/google";
 
 export default function RegisterPage() {
   return (
@@ -28,8 +30,9 @@ async function RegisterGate() {
   return (
     <AuthShell
       title="Start a card"
-      lede={`Pick a username and password. You stay signed in for ${SESSION_DAYS} days. An authenticator is optional.`}
+      lede={`Use Google, or pick a username and password. You stay signed in for ${SESSION_DAYS} days. Nothing is emailed. An authenticator app is optional.`}
     >
+      <GoogleSignIn enabled={googleConfigured()} />
       <AuthForm mode="register" action={registerAction} />
     </AuthShell>
   );

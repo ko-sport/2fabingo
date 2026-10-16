@@ -12,9 +12,11 @@ const initial: AuthState = {};
 export function AuthForm({
   mode,
   action,
+  notice,
 }: {
   mode: "login" | "register";
   action: (state: AuthState, formData: FormData) => Promise<AuthState>;
+  notice?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   const submit = mode === "login" ? "Continue" : "Create account";
@@ -78,6 +80,11 @@ export function AuthForm({
             Sign in with an authenticator. The code that signs you in is marked once each day.
           </span>
         </label>
+      ) : null}
+      {notice ? (
+        <p className="text-sm text-destructive" role="alert">
+          {notice}
+        </p>
       ) : null}
       {state.error ? (
         <p className="text-sm text-destructive" role="alert">

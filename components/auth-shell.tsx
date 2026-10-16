@@ -18,7 +18,7 @@ export function AuthShell({
       </Link>
       <div className="ticket mt-8 rounded-2xl p-6">
         <p className="font-mono text-[11px] tracking-[0.18em] text-[#1f7a45] uppercase">
-          Authenticator required
+          Your card
         </p>
         <h1 className="mt-2 font-heading text-4xl text-[#14211b]">{title}</h1>
         <p className="mt-2 mb-6 text-sm text-[#4d6156]">{lede}</p>

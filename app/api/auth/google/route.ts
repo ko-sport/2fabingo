@@ -3,7 +3,9 @@ import { beginGoogle, googleAuthUrl, googleConfigured, googleRedirectUri } from 
 
 export async function GET(request: Request) {
   if (!googleConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=google-setup", request.url));
+    const from = new URL(request.url).searchParams.get("from");
+    const back = from === "register" ? "/register" : "/login";
+    return NextResponse.redirect(new URL(`${back}?error=google-setup`, request.url));
   }
   const secure = forwardedProto(request) === "https";
   const { state } = await beginGoogle(secure);

@@ -5,10 +5,16 @@ import { SESSION_DAYS } from "@/lib/session";
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 import { blockedDatabase } from "@/components/database-notice";
-import { GoogleSignIn } from "@/components/google-button";
-import { googleConfigured } from "@/lib/google";
+import { GoogleSignIn, googleNotice } from "@/components/google-button";
 
-export default function RegisterPage() {
+type Search = { error?: string | string[] };
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+export default function RegisterPage({ searchParams }: { searchParams: Promise<Search> }) {
   return (
     <Suspense
       fallback={
@@ -17,23 +23,24 @@ export default function RegisterPage() {
         </AuthShell>
       }
     >
-      <RegisterGate />
+      <RegisterGate searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function RegisterGate() {
+async function RegisterGate({ searchParams }: { searchParams: Promise<Search> }) {
   const blocked = await blockedDatabase();
   if (blocked) return blocked;
   const user = await getOptionalUser();
   redirectSignedIn(user);
+  const error = firstParam((await searchParams).error);
   return (
     <AuthShell
       title="Start a card"
       lede={`Use Google, or pick a username and password. You stay signed in for ${SESSION_DAYS} days. Nothing is emailed. An authenticator app is optional.`}
     >
-      <GoogleSignIn enabled={googleConfigured()} />
-      <AuthForm mode="register" action={registerAction} />
+      <GoogleSignIn from="register" />
+      <AuthForm mode="register" action={registerAction} notice={googleNotice(error)} />
     </AuthShell>
   );
 }

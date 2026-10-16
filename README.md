@@ -59,7 +59,7 @@ Then in the Netlify site set:
 - `TURSO_AUTH_TOKEN` to the token
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for Sign in with Google
 
-In Google Cloud, create a web OAuth client. Authorized redirect URI: `https://2fabingo.co.uk/api/auth/google/callback`. The button stays hidden until both Google values are set and the site is deployed again. A Google sign-in opens a new card. It does not mark a square. The same Google account returns to that card later.
+In Google Cloud, create a web OAuth client. Authorized redirect URI: `https://2fabingo.co.uk/api/auth/google/callback`. Continue with Google is on Log in and Start a card. It opens a new card and does not mark a square. The same Google account returns to that card later. Until the two Google values are set, the button explains that the client ID and secret are still missing.
 
 Connect this project and deploy. Netlify detects Next.js. The build command is `npm run build`, and Node 22 is set in `netlify.toml`. Without those two variables the site says the card has no database yet, instead of failing with an empty server error.
 

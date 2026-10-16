@@ -1,9 +1,17 @@
-export function GoogleSignIn({ enabled }: { enabled: boolean }) {
-  if (!enabled) return null;
+export function googleNotice(error: string): string | undefined {
+  if (error === "google-setup") {
+    return "Google sign-in still needs a client ID and secret on the host.";
+  }
+  if (error === "google") return "Google sign-in didn’t finish. Try again.";
+  return undefined;
+}
+
+export function GoogleSignIn({ from }: { from?: "login" | "register" }) {
+  const href = from === "register" ? "/api/auth/google?from=register" : "/api/auth/google";
   return (
     <div className="mb-4">
       <a
-        href="/api/auth/google"
+        href={href}
         className="flex h-10 items-center justify-center gap-2 rounded-lg border border-[#c5d6c9] bg-white text-sm font-medium text-[#14211b]"
       >
         <GoogleMark />

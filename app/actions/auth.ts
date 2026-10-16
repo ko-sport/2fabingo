@@ -15,11 +15,13 @@ import { claimDailyFreebie } from "@/lib/marks-data";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { parseCode } from "@/lib/codes";
 import { createSecret, verifyTotp } from "@/lib/totp";
-import { validatePassword, validateUsername } from "@/lib/validators";
+import { unusedUsername } from "@/lib/account-name";
+import { usernameFromGoogle } from "@/lib/google-username";
+import { normalizeEmail, validateEmail, validatePassword } from "@/lib/validators";
 
 export type AuthState = {
   error?: string;
-  usernameError?: string;
+  emailError?: string;
   passwordError?: string;
 };
 
@@ -78,31 +80,30 @@ export async function registerAction(
   _state: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const username = String(formData.get("username") ?? "").trim();
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const wantsAuthenticator = formData.get("authenticator") === "on";
   const blocked = await databaseBlock();
   if (blocked) return blocked;
-  const usernameError = validateUsername(username);
+  const emailError = validateEmail(email);
   const passwordError = validatePassword(password);
-  if (usernameError || passwordError) {
+  if (emailError || passwordError) {
     return {
-      usernameError: usernameError ?? undefined,
+      emailError: emailError ?? undefined,
       passwordError: passwordError ?? undefined,
     };
   }
 
   const db = await getDb();
-  const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [
-    username,
-  ]);
-  if (existing) return { usernameError: "That username is already taken." };
+  const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE email = ?", [email]);
+  if (existing) return { emailError: "That email already has a card." };
 
+  const username = await unusedUsername(db, usernameFromGoogle({ email, sub: email }));
   const passwordHash = await hashPassword(password);
   if (!wantsAuthenticator) {
     const result = await db.run(
-      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login) VALUES (?, ?, 0, 0)",
-      [username, passwordHash],
+      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login, email) VALUES (?, ?, 0, 0, ?)",
+      [username, passwordHash, email],
     );
     const token = await createSession(result.lastInsertRowid);
     redirect(`/board?session=${token}`);
@@ -110,8 +111,8 @@ export async function registerAction(
 
   const secret = createSecret();
   const result = await db.run(
-    "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login) VALUES (?, ?, ?, 0, 1)",
-    [username, passwordHash, secret],
+    "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login, email) VALUES (?, ?, ?, 0, 1, ?)",
+    [username, passwordHash, secret, email],
   );
   const ticket = await beginPending(Number(result.lastInsertRowid), "enroll");
   redirect(`/setup?ticket=${ticket}`);
@@ -121,20 +122,26 @@ export async function loginAction(
   _state: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const username = String(formData.get("username") ?? "").trim();
+  const identity = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  if (!username || !password) {
-    return { error: "Enter your username and password." };
+  if (!identity || !password) {
+    return { error: "Enter your email and password." };
   }
   const blocked = await databaseBlock();
   if (blocked) return blocked;
 
   const db = await getDb();
-  const row = await db.get<UserRow>(
-    `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
-     FROM users WHERE username = ?`,
-    [username],
-  );
+  const row = identity.includes("@")
+    ? await db.get<UserRow>(
+        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
+         FROM users WHERE email = ?`,
+        [normalizeEmail(identity)],
+      )
+    : await db.get<UserRow>(
+        `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
+         FROM users WHERE username = ?`,
+        [identity],
+      );
   if (!row || !(await verifyPassword(password, String(row.password_hash)))) {
     return { error: "Those details don’t match an account." };
   }

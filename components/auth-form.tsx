@@ -24,26 +24,28 @@ export function AuthForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="username">Username</Label>
+          <Label htmlFor="email">Email</Label>
         <Input
-          id="username"
-          name="username"
-          autoComplete="username"
+          id="email"
+          name="email"
+          type={mode === "register" ? "email" : "text"}
+          autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
           required
-          minLength={3}
-          maxLength={20}
-          aria-invalid={state.usernameError ? true : undefined}
+          maxLength={254}
+          aria-invalid={state.emailError ? true : undefined}
           className="h-10"
         />
-        {state.usernameError ? (
+        {state.emailError ? (
           <p className="text-sm text-destructive" role="alert">
-            {state.usernameError}
+            {state.emailError}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            3–20 letters, numbers, or underscores.
+            {mode === "register"
+              ? "Any email address. We don’t send you anything."
+              : "An older username still works."}
           </p>
         )}
       </div>

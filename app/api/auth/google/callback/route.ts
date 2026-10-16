@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { beginPending, createSession } from "@/lib/auth";
+import { unusedUsername } from "@/lib/account-name";
 import { getDb } from "@/lib/db";
 import { finishGoogleState, googleProfile, googleRedirectUri } from "@/lib/google";
-import { nextUsername, usernameFromGoogle } from "@/lib/google-username";
+import { usernameFromGoogle } from "@/lib/google-username";
 import { hashPassword } from "@/lib/passwords";
 
 type Account = {
@@ -57,18 +58,12 @@ async function accountForGoogle(profile: {
   );
   if (existing) return existing;
 
-  const base = usernameFromGoogle(profile);
-  let username = base;
-  for (let taken = 2; taken < 1000; taken += 1) {
-    const row = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [username]);
-    if (!row) break;
-    username = nextUsername(base, taken);
-  }
+  const username = await unusedUsername(db, usernameFromGoogle(profile));
   const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
   const result = await db.run(
     `INSERT INTO users (username, password_hash, totp_confirmed, totp_login, google_sub, email)
      VALUES (?, ?, 0, 0, ?, ?)`,
-    [username, passwordHash, profile.sub, profile.email],
+    [username, passwordHash, profile.sub, profile.email.toLowerCase()],
   );
   return {
     id: Number(result.lastInsertRowid),

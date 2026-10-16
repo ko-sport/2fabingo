@@ -37,7 +37,7 @@ async function RegisterGate({ searchParams }: { searchParams: Promise<Search> })
   return (
     <AuthShell
       title="Start a card"
-      lede={`Use Google, or pick a username and password. You stay signed in for ${SESSION_DAYS} days. Nothing is emailed. An authenticator app is optional.`}
+      lede={`Use any email and a password, or continue with Google. You stay signed in for ${SESSION_DAYS} days. Nothing is sent to the email. An authenticator app is optional.`}
     >
       <GoogleSignIn from="register" />
       <AuthForm mode="register" action={registerAction} notice={googleNotice(error)} />

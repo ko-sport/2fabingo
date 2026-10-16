@@ -2,7 +2,7 @@
 
 A million-square bingo card for the six-digit codes you collect through the day. You only ever see one 10×10 grid. Type `250417` and press Find to open `250400 to 250500`, then click `250417` to register it. You can mark the same code more than once - it will go darker with every marking.
 
-Create an account with Google, or with a username and password. The site does not email a code. An authenticator app is optional. When that sign-in is on, the code from the app is daubed once each day. Google Authenticator works for that step.
+Create an account with any email and a password, or with Google. The site does not send a message to that email. An authenticator app is optional. When that sign-in is on, the code from the app is daubed once each day. Google Authenticator works for that step. Older accounts can still sign in with the username.
 
 ## Run it
 

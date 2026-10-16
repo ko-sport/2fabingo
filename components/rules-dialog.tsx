@@ -1,5 +1,7 @@
 "use client";
 
+// Parked off the card. Mount <RulesDialog /> again when the rules should come back.
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

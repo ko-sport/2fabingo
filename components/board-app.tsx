@@ -17,7 +17,6 @@ import {
 import { CodeEntry } from "@/components/code-entry";
 import { LocatorGrid, type Zoom } from "@/components/locator-grid";
 import { DisplayName } from "@/components/display-name";
-import { RulesDialog } from "@/components/rules-dialog";
 import { StampOverlay } from "@/components/stamp-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
@@ -381,9 +380,6 @@ function BoardShell({
                 ))}
               </ul>
             )}
-            <div className="mt-4">
-              <RulesDialog />
-            </div>
           </section>
         </div>
       </div>

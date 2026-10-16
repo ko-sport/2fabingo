@@ -2,12 +2,7 @@
 
 import { readSessionUser } from "@/lib/auth";
 import { parseCode } from "@/lib/codes";
-import {
-  applyGrouped,
-  listMarks,
-  listRecent,
-  replaceMarks,
-} from "@/lib/marks-data";
+import { applyGrouped, listMarks, listRecent } from "@/lib/marks-data";
 
 const MAX_ENTRIES = 2_000;
 
@@ -57,36 +52,4 @@ export async function reloadMarksAction(
   const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
   return { marks: await listMarks(user.id), recent: await listRecent(user.id) };
-}
-
-export async function importMarksAction(
-  marks: [number, number][],
-  sessionToken?: string,
-): Promise<{ total: number } | { error: string }> {
-  const user = await readSessionUser(sessionToken);
-  if (!user) return { error: "Log in again to import a card." };
-  if (!Array.isArray(marks) || marks.length > 1_000_000) {
-    return { error: "That file isn’t a bingo card." };
-  }
-  const clean: [number, number][] = [];
-  const seen = new Set<number>();
-  for (const entry of marks) {
-    if (!Array.isArray(entry) || entry.length < 2) {
-      return { error: "That file isn’t a bingo card." };
-    }
-    const code = Number(entry[0]);
-    const count = Number(entry[1]);
-    if (!Number.isInteger(code) || code < 0 || code > 999999) {
-      return { error: "That file isn’t a bingo card." };
-    }
-    if (!Number.isFinite(count) || count < 1 || seen.has(code)) continue;
-    seen.add(code);
-    clean.push([code, Math.min(9999, Math.floor(count))]);
-  }
-  try {
-    await replaceMarks(user.id, clean);
-  } catch {
-    return { error: "Couldn’t import that card." };
-  }
-  return { total: clean.length };
 }

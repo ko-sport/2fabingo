@@ -1,12 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { clearPending, createSession, destroySession, renewSession } from "@/lib/auth";
+import { clearPending, createSession, destroySession, readSessionUser, renewSession } from "@/lib/auth";
 import { databaseMessage, getDb } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { unusedUsername } from "@/lib/account-name";
 import { usernameFromGoogle } from "@/lib/google-username";
-import { normalizeEmail, validateEmail, validatePassword } from "@/lib/validators";
+import { normalizeEmail, validateEmail, validatePassword, validateUsername } from "@/lib/validators";
 
 export type AuthState = {
   error?: string;
@@ -78,6 +78,26 @@ export async function loginAction(
 
   const token = await createSession(Number(row.id));
   redirect(`/board?session=${token}`);
+}
+
+export type RenameState = { error?: string; username?: string };
+
+export async function renameAction(_state: RenameState, formData: FormData): Promise<RenameState> {
+  const sessionToken = String(formData.get("session") ?? "");
+  const user = await readSessionUser(sessionToken);
+  if (!user) redirect("/login");
+  const username = String(formData.get("username") ?? "").trim();
+  const usernameError = validateUsername(username);
+  if (usernameError) return { error: usernameError };
+  if (username.toLowerCase() === user.username.toLowerCase()) return { username: user.username };
+  const db = await getDb();
+  const taken = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ? AND id != ?", [
+    username,
+    user.id,
+  ]);
+  if (taken) return { error: "That name is already on a card." };
+  await db.run("UPDATE users SET username = ? WHERE id = ?", [username, user.id]);
+  return { username };
 }
 
 export async function touchSessionAction(sessionToken: string): Promise<void> {

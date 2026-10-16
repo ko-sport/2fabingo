@@ -44,7 +44,7 @@ export function CodeEntry({ onFind }: { onFind: (code: string) => void }) {
           name="code"
           value={value}
           aria-invalid={error ? true : undefined}
-          aria-describedby="code-hint"
+          aria-describedby={error ? "code-hint" : undefined}
           onValueChange={(next) => {
             setValue(next.replace(/\D/g, "").slice(0, 6));
             setError(null);
@@ -55,10 +55,11 @@ export function CodeEntry({ onFind }: { onFind: (code: string) => void }) {
           Find
         </Button>
       </div>
-      <p id="code-hint" className="text-sm text-muted-foreground">
-        {error ??
-          "Takes you to that square. + adds one."}
-      </p>
+      {error ? (
+        <p id="code-hint" className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }

@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { logoutAction, touchSessionAction } from "@/app/actions/auth";
-import {
-  daubManyAction,
-  importMarksAction,
-  reloadMarksAction,
-} from "@/app/actions/marks";
+import { daubManyAction, reloadMarksAction } from "@/app/actions/marks";
+import { celebrate } from "@/lib/celebrate";
+import { lineFill } from "@/lib/lines";
 import { Achievements } from "@/components/achievements";
 import {
   CardStore,
@@ -18,18 +16,11 @@ import {
 } from "@/components/card-store";
 import { CodeEntry } from "@/components/code-entry";
 import { LocatorGrid, type Zoom } from "@/components/locator-grid";
+import { DisplayName } from "@/components/display-name";
 import { RulesDialog } from "@/components/rules-dialog";
 import { StampOverlay } from "@/components/stamp-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { formatCode, parseCode } from "@/lib/codes";
 import {
   blockStart,
@@ -80,10 +71,7 @@ function BoardShell({
   const [zoom, setZoom] = useState<Zoom>({ level: 0 });
   const [saving, setSaving] = useState(0);
   const [stamp, setStamp] = useState<Stamp | null>(null);
-  const [pendingImport, setPendingImport] = useState<[number, number][] | null>(
-    null,
-  );
-  const fileRef = useRef<HTMLInputElement>(null);
+  const linesRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
     void touchSessionAction(sessionToken);
@@ -108,7 +96,7 @@ function BoardShell({
           next = next.filter((item) => item.code !== code);
           if (count > 0) next = [{ code, count }, ...next];
         }
-        return next.slice(0, 8);
+        return next.slice(0, 20);
       });
     },
     [store],
@@ -176,10 +164,25 @@ function BoardShell({
 
   useEffect(() => {
     const before = previous.current;
+    const beforeLines = linesRef.current;
+    const afterLines = lineFill(store.counts);
     previous.current = analysis;
-    if (!before || silent.current) {
+    linesRef.current = afterLines;
+    if (!before || !beforeLines || silent.current) {
       silent.current = false;
       return;
+    }
+    for (const event of celebrate(before, analysis, beforeLines, afterLines)) {
+      toast.success(event.headline, {
+        description: event.bar,
+        duration: 12000,
+        action: {
+          label: "Share",
+          onClick: () => {
+            void shareProgress(event.text);
+          },
+        },
+      });
     }
     if (!before.fullHouse && analysis.fullHouse) {
       setStamp({
@@ -209,7 +212,7 @@ function BoardShell({
         return;
       }
     }
-  }, [analysis]);
+  }, [analysis, store]);
 
   const clearStamp = useCallback(() => setStamp(null), []);
   const percent =
@@ -247,81 +250,6 @@ function BoardShell({
     persist([{ code, delta }]);
   }
 
-  function exportCard() {
-    const payload = { version: 1, marks: store.entries() };
-    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "2fa-bingo.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function onFile(file: File) {
-    let data: unknown;
-    try {
-      data = JSON.parse(await file.text());
-    } catch {
-      toast.error("That file isn’t a bingo card.");
-      return;
-    }
-    if (!data || typeof data !== "object" || !("marks" in data)) {
-      toast.error("That file isn’t a bingo card.");
-      return;
-    }
-    const marks = (data as { marks: unknown }).marks;
-    if (!Array.isArray(marks)) {
-      toast.error("That file isn’t a bingo card.");
-      return;
-    }
-    const clean: [number, number][] = [];
-    for (const entry of marks) {
-      if (Array.isArray(entry) && entry.length >= 2) {
-        clean.push([Number(entry[0]), Number(entry[1])]);
-      } else if (entry && typeof entry === "object" && "code" in entry && "count" in entry) {
-        const row = entry as { code: unknown; count: unknown };
-        clean.push([Number(row.code), Number(row.count)]);
-      } else {
-        toast.error("That file isn’t a bingo card.");
-        return;
-      }
-    }
-    setPendingImport(clean);
-  }
-
-  function confirmImport() {
-    if (!pendingImport) return;
-    const marks = pendingImport;
-    setPendingImport(null);
-    const my = ++epoch.current;
-    setSaving((count) => count + 1);
-    chain.current = chain.current.then(async () => {
-      try {
-        const result = await importMarksAction(marks, sessionToken);
-        if ("error" in result) {
-          toast.error(result.error);
-          return;
-        }
-        if (my !== epoch.current) return;
-        const fresh = await reloadMarksAction(sessionToken);
-        if ("error" in fresh) {
-          toast.error(fresh.error);
-          return;
-        }
-        silent.current = true;
-        store.hydrate(fresh.marks);
-        setRecent(fresh.recent);
-        setZoom({ level: 0 });
-        toast.success(`Imported ${result.total.toLocaleString()} squares.`);
-      } catch {
-        toast.error("Couldn’t import that card.");
-      } finally {
-        setSaving((count) => Math.max(0, count - 1));
-      }
-    });
-  }
-
   const focusCode = zoom.level === 2 ? zoom.focus : null;
   const block = zoom.level === 0 ? null : zoom.block;
   const page = zoom.level === 2 ? zoom.page : null;
@@ -354,7 +282,7 @@ function BoardShell({
           {saving > 0 ? <span className="text-[#8eaa98]"> · saving</span> : null}
         </p>
         <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-sm text-[#f4f7f2]">{username}</span>
+          <DisplayName username={username} sessionToken={sessionToken} />
           <form action={logoutAction}>
             <input type="hidden" name="session" value={sessionToken} />
             <Button
@@ -433,7 +361,7 @@ function BoardShell({
             <Achievements />
           </div>
           <section className="ticket rounded-2xl p-4">
-            <h2 className="font-heading text-xl text-[#14211b]">Recent</h2>
+            <h2 className="font-heading text-xl text-[#14211b]">Last 20</h2>
             {recent.length === 0 ? (
               <p className="mt-2 text-sm text-[#4d6156]">Codes you register show up here.</p>
             ) : (
@@ -454,58 +382,33 @@ function BoardShell({
                 ))}
               </ul>
             )}
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4">
               <RulesDialog />
-              <Button type="button" variant="outline" onClick={exportCard}>
-                Export
-              </Button>
-              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-                Import
-              </Button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json,.json"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (file) void onFile(file);
-                }}
-              />
             </div>
           </section>
         </div>
       </div>
 
       <StampOverlay title={stamp?.title ?? null} detail={stamp?.detail ?? null} onDone={clearStamp} />
-
-      <Dialog
-        open={pendingImport !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingImport(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl">Replace your card?</DialogTitle>
-            <DialogDescription>
-              This replaces every square on your card with the{" "}
-              {(pendingImport?.length ?? 0).toLocaleString()} squares in the file.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPendingImport(null)}>
-              Keep my card
-            </Button>
-            <Button type="button" onClick={confirmImport}>
-              Replace
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
+}
+
+async function shareProgress(text: string) {
+  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Copied. Paste it wherever you like.");
+  } catch {
+    toast.error("Couldn’t copy that.");
+  }
 }
 
 function Crumb({
@@ -543,13 +446,7 @@ function FocusReadout({
   onRegister: (delta: 1 | -1) => void;
 }) {
   const count = useCount(code);
-  if (code === null) {
-    return (
-      <p className="mt-4 text-sm text-muted-foreground" data-testid="active-square">
-        Find a code, or click a square. + adds one.
-      </p>
-    );
-  }
+  if (code === null) return null;
   return (
     <div className="mt-4 border-t border-[#c5d6c9] pt-4" data-testid="active-square">
       <p className="font-mono text-2xl tracking-[0.18em] text-[#14211b]">{formatCode(code)}</p>

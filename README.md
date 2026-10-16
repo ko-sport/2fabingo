@@ -33,13 +33,13 @@ Only one grid is on screen.
 
 On the set and on a block, a square’s green is how much of it is already registered. A full hundred, a full block of 10,000, and the full set each get a stamp.
 
-**Export** downloads your card as JSON. **Import** replaces the card with that file.
-
 ## Logging in
 
 You stay signed in for 30 days. Opening the card starts that window again, so it lapses after 30 days away.
 
 An email and a password open the card. Continue with Google does the same, and opens a new card the first time. An older username still works in the email field. Signing in does not ask for another code, and it does not mark a square. The codes on the card are ones you type in yourself.
+
+The name in the corner is the one on the card. Click it to change it. A new email or Google card takes the part of the address before the @, and adds a number when that name is already taken.
 
 The card opens with the session on its address, so a browser that drops the cookie still reaches your squares.
 

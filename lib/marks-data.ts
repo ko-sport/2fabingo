@@ -16,7 +16,7 @@ export async function listMarks(userId: number): Promise<[number, number][]> {
 
 export async function listRecent(
   userId: number,
-  limit = 8,
+  limit = 20,
 ): Promise<{ code: number; count: number }[]> {
   const db = await getDb();
   const rows = await db.all<MarkRow>(
@@ -76,21 +76,3 @@ export async function applyGrouped(
   });
 }
 
-export async function replaceMarks(userId: number, marks: [number, number][]): Promise<void> {
-  const db = await getDb();
-  await db.transaction(async (tx) => {
-    await tx.run("DELETE FROM marks WHERE user_id = ?", [userId]);
-    const seen = new Set<number>();
-    for (const [code, count] of marks) {
-      if (!Number.isInteger(code) || code < 0 || code > 999999) continue;
-      if (seen.has(code)) continue;
-      const stored = Math.max(1, Math.min(MAX_COUNT, Math.floor(count)));
-      if (!Number.isFinite(stored)) continue;
-      await tx.run(
-        "INSERT INTO marks (user_id, code, count, updated_at) VALUES (?, ?, ?, datetime('now'))",
-        [userId, code, stored],
-      );
-      seen.add(code);
-    }
-  });
-}

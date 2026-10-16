@@ -10,7 +10,7 @@ import {
   readSessionUser,
   renewSession,
 } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { databaseMessage, getDb } from "@/lib/db";
 import { claimDailyFreebie } from "@/lib/marks-data";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { parseCode } from "@/lib/codes";
@@ -69,6 +69,11 @@ async function finishLogin(userId: number, secret: string, username: string, raw
   return true;
 }
 
+async function databaseBlock(): Promise<AuthState | null> {
+  const message = await databaseMessage();
+  return message ? { error: message } : null;
+}
+
 export async function registerAction(
   _state: AuthState,
   formData: FormData,
@@ -76,6 +81,8 @@ export async function registerAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const wantsAuthenticator = formData.get("authenticator") === "on";
+  const blocked = await databaseBlock();
+  if (blocked) return blocked;
   const usernameError = validateUsername(username);
   const passwordError = validatePassword(password);
   if (usernameError || passwordError) {
@@ -119,6 +126,8 @@ export async function loginAction(
   if (!username || !password) {
     return { error: "Enter your username and password." };
   }
+  const blocked = await databaseBlock();
+  if (blocked) return blocked;
 
   const db = await getDb();
   const row = await db.get<UserRow>(

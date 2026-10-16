@@ -1,8 +1,12 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { createClient, type Client, type ResultSet, type Transaction } from "@libsql/client";
+import {
+  DATABASE_CONNECTION_MESSAGE,
+  databaseConfigMessage,
+  schemaStatements,
+} from "@/lib/db-config";
 
 export type SqlValue = string | number | bigint | null;
 export type SqlArgs = SqlValue[];
@@ -15,7 +19,14 @@ export type SqlDb = {
   transaction<T>(fn: (tx: SqlDb) => Promise<T>): Promise<T>;
 };
 
-const CLIENT = 1;
+const CLIENT = 2;
+
+export class DatabaseConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseConfigError";
+  }
+}
 
 const globalForDb = globalThis as unknown as {
   bingoClient?: Promise<SqlDb>;
@@ -54,8 +65,11 @@ const SCHEMA_SQL = `
 function rowsOf<T>(result: ResultSet): T[] {
   return result.rows.map((row) => {
     const record: Record<string, unknown> = {};
+    const named = row as unknown as Record<string, unknown>;
     for (let index = 0; index < result.columns.length; index += 1) {
-      record[result.columns[index]] = row[index];
+      const column = result.columns[index];
+      const indexed = (row as unknown as unknown[])[index];
+      record[column] = indexed === undefined ? named[column] : indexed;
     }
     return record as T;
   });
@@ -100,7 +114,16 @@ function wrapLibsql(executor: Client | Transaction, begin?: () => Promise<Transa
   return db;
 }
 
-function wrapSqlite(sqlite: DatabaseSync, inTransaction = false): SqlDb {
+type LocalSqlite = {
+  prepare(sql: string): {
+    get(...args: SqlArgs): unknown;
+    all(...args: SqlArgs): unknown[];
+    run(...args: SqlArgs): { changes: number | bigint; lastInsertRowid: number | bigint };
+  };
+  exec(sql: string): void;
+};
+
+function wrapSqlite(sqlite: LocalSqlite, inTransaction = false): SqlDb {
   const db: SqlDb = {
     async get<T>(sql: string, args: SqlArgs = []) {
       return sqlite.prepare(sql).get(...args) as T | undefined;
@@ -134,19 +157,34 @@ function wrapSqlite(sqlite: DatabaseSync, inTransaction = false): SqlDb {
   return db;
 }
 
-async function migrate(db: SqlDb): Promise<void> {
-  await db.exec(SCHEMA_SQL);
+async function migrate(db: SqlDb, remote: boolean): Promise<void> {
+  if (remote) {
+    for (const statement of schemaStatements(SCHEMA_SQL)) {
+      try {
+        await db.run(statement);
+      } catch (error) {
+        if (/^pragma\b/i.test(statement)) continue;
+        throw error;
+      }
+    }
+  } else {
+    await db.exec(SCHEMA_SQL);
+  }
   const columns = await db.all<{ name: string }>("PRAGMA table_info(users)");
   const names = new Set(columns.map((column) => column.name));
-  if (!names.has("totp_secret")) await db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT");
+  const apply = async (sql: string) => {
+    if (remote) await db.run(sql);
+    else await db.exec(sql);
+  };
+  if (!names.has("totp_secret")) await apply("ALTER TABLE users ADD COLUMN totp_secret TEXT");
   if (!names.has("totp_confirmed")) {
-    await db.exec("ALTER TABLE users ADD COLUMN totp_confirmed INTEGER NOT NULL DEFAULT 0");
+    await apply("ALTER TABLE users ADD COLUMN totp_confirmed INTEGER NOT NULL DEFAULT 0");
   }
-  if (!names.has("freebie_on")) await db.exec("ALTER TABLE users ADD COLUMN freebie_on TEXT");
-  if (!names.has("freebie_code")) await db.exec("ALTER TABLE users ADD COLUMN freebie_code INTEGER");
+  if (!names.has("freebie_on")) await apply("ALTER TABLE users ADD COLUMN freebie_on TEXT");
+  if (!names.has("freebie_code")) await apply("ALTER TABLE users ADD COLUMN freebie_code INTEGER");
   if (!names.has("totp_login")) {
-    await db.exec("ALTER TABLE users ADD COLUMN totp_login INTEGER NOT NULL DEFAULT 0");
-    await db.exec("UPDATE users SET totp_login = 1 WHERE totp_confirmed = 1");
+    await apply("ALTER TABLE users ADD COLUMN totp_login INTEGER NOT NULL DEFAULT 0");
+    await apply("UPDATE users SET totp_login = 1 WHERE totp_confirmed = 1");
   }
 }
 
@@ -155,25 +193,39 @@ function hostedRuntime(): boolean {
 }
 
 async function openDb(): Promise<SqlDb> {
-  const url = process.env.TURSO_DATABASE_URL;
-  if (url) {
-    const authToken = process.env.TURSO_AUTH_TOKEN;
-    if (!authToken) throw new Error("Set TURSO_AUTH_TOKEN next to TURSO_DATABASE_URL.");
+  const url = process.env.TURSO_DATABASE_URL?.trim();
+  const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
+  const configMessage = databaseConfigMessage({
+    url,
+    token: authToken,
+    hosted: hostedRuntime(),
+  });
+  if (configMessage) throw new DatabaseConfigError(configMessage);
+  if (url && authToken) {
     const client = createClient({ url, authToken });
     const db = wrapLibsql(client, () => client.transaction("write"));
-    await migrate(db);
+    await migrate(db, true);
     return db;
-  }
-  if (hostedRuntime()) {
-    throw new Error("Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN so accounts survive on Netlify.");
   }
   const dir = path.join(process.cwd(), "data");
   fs.mkdirSync(dir, { recursive: true });
+  const { DatabaseSync } = await import("node:sqlite");
   const sqlite = new DatabaseSync(path.join(dir, "bingo.db"));
   sqlite.exec("PRAGMA journal_mode = WAL;");
   const db = wrapSqlite(sqlite);
-  await migrate(db);
+  await migrate(db, false);
   return db;
+}
+
+export async function databaseMessage(): Promise<string | null> {
+  try {
+    await getDb();
+    return null;
+  } catch (error) {
+    if (error instanceof DatabaseConfigError) return error.message;
+    console.error(error);
+    return DATABASE_CONNECTION_MESSAGE;
+  }
 }
 
 export function getDb(): Promise<SqlDb> {

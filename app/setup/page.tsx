@@ -5,6 +5,7 @@ import { readPending, readSessionUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { createSecret, formatSecret, qrDataUrl } from "@/lib/totp";
 import { AuthShell } from "@/components/auth-shell";
+import { blockedDatabase } from "@/components/database-notice";
 import { TotpForm } from "@/components/totp-form";
 
 type Search = { ticket?: string | string[] };
@@ -53,6 +54,8 @@ async function ensureSecret(userId: number): Promise<{ username: string; secret:
 }
 
 async function SetupGate({ searchParams }: { searchParams: Promise<Search> }) {
+  const blocked = await blockedDatabase();
+  if (blocked) return blocked;
   const ticket = firstParam((await searchParams).ticket);
   const session = await readSessionUser();
   const pending = await readPending(ticket);

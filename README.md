@@ -51,11 +51,13 @@ Locally, squares are stored in SQLite at `data/bingo.db`, which is created on fi
 
 ## Publish on Netlify
 
-Create a Turso database and a token, then in the Netlify site set:
+Create an empty Turso database named `bingo` in Ireland (`aws-eu-west-1`). If the form asks for a group, create that first, in the same place, with no replicas. London is not a create location; choosing it comes back as Internal Server Error. If the button errors, refresh the database list before trying again — the database is sometimes created anyway. Leave it empty. The app creates the tables on the first request.
+
+Then in the Netlify site set:
 
 - `TURSO_DATABASE_URL` to the `libsql://` address
 - `TURSO_AUTH_TOKEN` to the token
 
-Connect this project and deploy. Netlify detects Next.js. The build command is `npm run build`, and Node 22 is set in `netlify.toml`.
+Connect this project and deploy. Netlify detects Next.js. The build command is `npm run build`, and Node 22 is set in `netlify.toml`. Without those two variables the site says the card has no database yet, instead of failing with an empty server error.
 
 To remove the Powered by Netlify badge for every visitor: Project configuration → General → Powered by Netlify badge → turn it off → Save. That applies on the next request. The Netlify Drawer is only on deploy previews; turn it off under Project configuration → Developer settings → Continuous deployment → Collaboration tools.

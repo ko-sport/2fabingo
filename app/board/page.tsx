@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { listMarks, listRecent, todaysFreebie } from "@/lib/marks-data";
 import { BoardApp } from "@/components/board-app";
 import { BoardFallback } from "@/components/board-fallback";
+import { blockedDatabase } from "@/components/database-notice";
 
 type Search = { session?: string | string[] };
 
@@ -24,6 +25,8 @@ export default function BoardPage({
 }
 
 async function BoardGate({ searchParams }: { searchParams: Promise<Search> }) {
+  const blocked = await blockedDatabase();
+  if (blocked) return blocked;
   const session = firstParam((await searchParams).session);
   const user = await getCurrentUser(session);
   const marks = await listMarks(user.id);

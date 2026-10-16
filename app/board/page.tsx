@@ -26,14 +26,14 @@ export default function BoardPage({
 async function BoardGate({ searchParams }: { searchParams: Promise<Search> }) {
   const session = firstParam((await searchParams).session);
   const user = await getCurrentUser(session);
-  const marks = listMarks(user.id);
-  const recent = listRecent(user.id);
+  const marks = await listMarks(user.id);
+  const recent = await listRecent(user.id);
   return (
     <BoardApp
       username={user.username}
       sessionToken={user.token}
       authenticatorLogin={user.totpLogin}
-      freebieCode={todaysFreebie(user.id)}
+      freebieCode={await todaysFreebie(user.id)}
       initialMarks={marks}
       initialRecent={recent}
     />

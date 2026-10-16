@@ -32,37 +32,40 @@ type UserRow = {
   totp_login: number;
 };
 
-function loadUser(id: number): UserRow | undefined {
-  return getDb()
-    .prepare(
-      `SELECT id, username, password_hash, totp_secret, totp_confirmed, totp_login
-       FROM users WHERE id = ?`,
-    )
-    .get(id) as UserRow | undefined;
+async function loadUser(id: number): Promise<UserRow | undefined> {
+  const db = await getDb();
+  return db.get<UserRow>(
+    `SELECT id, username, password_hash, totp_secret, totp_confirmed, totp_login
+     FROM users WHERE id = ?`,
+    [id],
+  );
 }
 
-function ensureSecret(userId: number): string {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT totp_secret FROM users WHERE id = ?")
-    .get(userId) as { totp_secret: string | null } | undefined;
+async function ensureSecret(userId: number): Promise<string> {
+  const db = await getDb();
+  const row = await db.get<{ totp_secret: string | null }>(
+    "SELECT totp_secret FROM users WHERE id = ?",
+    [userId],
+  );
   if (row?.totp_secret) return row.totp_secret;
   const secret = createSecret();
-  db.prepare(
-    "UPDATE users SET totp_secret = ? WHERE id = ? AND totp_secret IS NULL",
-  ).run(secret, userId);
-  const again = db
-    .prepare("SELECT totp_secret FROM users WHERE id = ?")
-    .get(userId) as { totp_secret: string };
-  return again.totp_secret;
+  await db.run("UPDATE users SET totp_secret = ? WHERE id = ? AND totp_secret IS NULL", [
+    secret,
+    userId,
+  ]);
+  const again = await db.get<{ totp_secret: string }>(
+    "SELECT totp_secret FROM users WHERE id = ?",
+    [userId],
+  );
+  return again?.totp_secret ?? secret;
 }
 
-function finishLogin(userId: number, secret: string, username: string, rawCode: string) {
+async function finishLogin(userId: number, secret: string, username: string, rawCode: string) {
   const code = parseCode(rawCode.replace(/\D/g, ""));
   if (code === null || !verifyTotp(secret, username, String(code).padStart(6, "0"))) {
     return false;
   }
-  claimDailyFreebie(userId, code);
+  await claimDailyFreebie(userId, code);
   return true;
 }
 
@@ -82,28 +85,27 @@ export async function registerAction(
     };
   }
 
-  const existing = getDb()
-    .prepare("SELECT id FROM users WHERE username = ?")
-    .get(username);
+  const db = await getDb();
+  const existing = await db.get<{ id: number }>("SELECT id FROM users WHERE username = ?", [
+    username,
+  ]);
   if (existing) return { usernameError: "That username is already taken." };
 
   const passwordHash = await hashPassword(password);
   if (!wantsAuthenticator) {
-    const result = getDb()
-      .prepare(
-        "INSERT INTO users (username, password_hash, totp_confirmed, totp_login) VALUES (?, ?, 0, 0)",
-      )
-      .run(username, passwordHash);
-    const token = await createSession(Number(result.lastInsertRowid));
+    const result = await db.run(
+      "INSERT INTO users (username, password_hash, totp_confirmed, totp_login) VALUES (?, ?, 0, 0)",
+      [username, passwordHash],
+    );
+    const token = await createSession(result.lastInsertRowid);
     redirect(`/board?session=${token}`);
   }
 
   const secret = createSecret();
-  const result = getDb()
-    .prepare(
-      "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login) VALUES (?, ?, ?, 0, 1)",
-    )
-    .run(username, passwordHash, secret);
+  const result = await db.run(
+    "INSERT INTO users (username, password_hash, totp_secret, totp_confirmed, totp_login) VALUES (?, ?, ?, 0, 1)",
+    [username, passwordHash, secret],
+  );
   const ticket = await beginPending(Number(result.lastInsertRowid), "enroll");
   redirect(`/setup?ticket=${ticket}`);
 }
@@ -118,19 +120,19 @@ export async function loginAction(
     return { error: "Enter your username and password." };
   }
 
-  const row = getDb()
-    .prepare(
-      `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
-       FROM users WHERE username = ?`,
-    )
-    .get(username) as UserRow | undefined;
+  const db = await getDb();
+  const row = await db.get<UserRow>(
+    `SELECT id, password_hash, totp_secret, totp_confirmed, totp_login
+     FROM users WHERE username = ?`,
+    [username],
+  );
   if (!row || !(await verifyPassword(password, String(row.password_hash)))) {
     return { error: "Those details don’t match an account." };
   }
 
   if (Number(row.totp_login) === 1) {
     if (!row.totp_secret || Number(row.totp_confirmed) !== 1) {
-      ensureSecret(Number(row.id));
+      await ensureSecret(Number(row.id));
       const ticket = await beginPending(Number(row.id), "enroll");
       redirect(`/setup?ticket=${ticket}`);
     }
@@ -152,20 +154,19 @@ export async function enrollAction(
   const userId = session && !session.totpConfirmed ? session.id : pending?.purpose === "enroll" ? pending.userId : null;
   if (userId === null) redirect("/login");
 
-  const user = loadUser(userId);
+  const user = await loadUser(userId);
   if (!user) redirect("/login");
-  const secret = ensureSecret(user.id);
+  const secret = await ensureSecret(user.id);
   const raw = String(formData.get("code") ?? "");
   const digits = raw.replace(/\D/g, "");
   if (!verifyTotp(secret, user.username, digits)) {
     return { error: "That code doesn’t match. Wait for a fresh one and try again." };
   }
 
-  getDb()
-    .prepare("UPDATE users SET totp_confirmed = 1, totp_login = 1 WHERE id = ?")
-    .run(user.id);
+  const db = await getDb();
+  await db.run("UPDATE users SET totp_confirmed = 1, totp_login = 1 WHERE id = ?", [user.id]);
   const code = parseCode(digits);
-  if (code !== null) claimDailyFreebie(user.id, code);
+  if (code !== null) await claimDailyFreebie(user.id, code);
   await clearPending(pending?.token ?? ticket);
   if (session) await destroySession(session.token);
   const token = await createSession(user.id);
@@ -179,11 +180,11 @@ export async function loginCodeAction(
   const ticket = String(formData.get("ticket") ?? "");
   const pending = await readPending(ticket);
   if (!pending || pending.purpose !== "login") redirect("/login");
-  const user = loadUser(pending.userId);
+  const user = await loadUser(pending.userId);
   if (!user?.totp_secret || Number(user.totp_confirmed) !== 1) redirect("/setup");
 
   const digits = String(formData.get("code") ?? "").replace(/\D/g, "");
-  if (!finishLogin(user.id, user.totp_secret, user.username, digits)) {
+  if (!(await finishLogin(user.id, user.totp_secret, user.username, digits))) {
     return { error: "That code doesn’t match. Wait for a fresh one and try again." };
   }
   await clearPending(pending.token);
@@ -201,7 +202,8 @@ export async function passwordOnlyAction(formData: FormData): Promise<void> {
   const session = await readSessionUser();
   const userId = pending?.userId ?? session?.id ?? null;
   if (userId === null) redirect("/login");
-  getDb().prepare("UPDATE users SET totp_login = 0 WHERE id = ?").run(userId);
+  const db = await getDb();
+  await db.run("UPDATE users SET totp_login = 0 WHERE id = ?", [userId]);
   await clearPending(pending?.token ?? ticket);
   if (session) await destroySession(session.token);
   const token = await createSession(userId);
@@ -214,14 +216,16 @@ export async function setAuthenticatorAction(formData: FormData): Promise<void> 
   if (!user) redirect("/login");
   const enable = String(formData.get("enabled") ?? "") === "1";
   if (!enable) {
-    getDb().prepare("UPDATE users SET totp_login = 0 WHERE id = ?").run(user.id);
+    const db = await getDb();
+    await db.run("UPDATE users SET totp_login = 0 WHERE id = ?", [user.id]);
     redirect(`/board?session=${user.token}`);
   }
   if (user.totpConfirmed) {
-    getDb().prepare("UPDATE users SET totp_login = 1 WHERE id = ?").run(user.id);
+    const db = await getDb();
+    await db.run("UPDATE users SET totp_login = 1 WHERE id = ?", [user.id]);
     redirect(`/board?session=${user.token}`);
   }
-  ensureSecret(user.id);
+  await ensureSecret(user.id);
   const ticket = await beginPending(user.id, "enroll");
   redirect(`/setup?ticket=${ticket}`);
 }

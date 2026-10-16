@@ -42,7 +42,7 @@ export async function daubManyAction(
   const grouped = groupEntries(entries);
   if (typeof grouped === "string") return { error: grouped };
   try {
-    return { counts: applyGrouped(user.id, grouped) };
+    return { counts: await applyGrouped(user.id, grouped) };
   } catch {
     return { error: "Couldn’t save that daub." };
   }
@@ -56,7 +56,7 @@ export async function reloadMarksAction(
 > {
   const user = await readSessionUser(sessionToken);
   if (!user) return { error: "Log in again to keep daubing." };
-  return { marks: listMarks(user.id), recent: listRecent(user.id) };
+  return { marks: await listMarks(user.id), recent: await listRecent(user.id) };
 }
 
 export async function importMarksAction(
@@ -84,7 +84,7 @@ export async function importMarksAction(
     clean.push([code, Math.min(9999, Math.floor(count))]);
   }
   try {
-    replaceMarks(user.id, clean);
+    await replaceMarks(user.id, clean);
   } catch {
     return { error: "Couldn’t import that card." };
   }

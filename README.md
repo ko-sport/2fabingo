@@ -45,6 +45,17 @@ The sign-in carries a short-lived ticket on the address so a browser that drops 
 
 ## Accounts
 
-Passwords are hashed with scrypt. The authenticator secret is stored with the account and is only shown while you are pairing the app. Sessions live in an httpOnly cookie for 30 days. Squares are stored in SQLite at `data/bingo.db`, which is created on first use and is not committed.
+Passwords are hashed with scrypt. The authenticator secret is stored with the account and is only shown while you are pairing the app. Sessions live in an httpOnly cookie for 30 days.
 
-Run this on a machine with a persistent disk. A serverless host that wipes the filesystem will forget accounts when the instance shuts down.
+Locally, squares are stored in SQLite at `data/bingo.db`, which is created on first use and is not committed. On Netlify, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Without those, a serverless deploy has nowhere to keep accounts.
+
+## Publish on Netlify
+
+Create a Turso database and a token, then in the Netlify site set:
+
+- `TURSO_DATABASE_URL` to the `libsql://` address
+- `TURSO_AUTH_TOKEN` to the token
+
+Connect this project and deploy. Netlify detects Next.js. The build command is `npm run build`, and Node 22 is set in `netlify.toml`.
+
+To remove the Powered by Netlify badge for every visitor: Project configuration → General → Powered by Netlify badge → turn it off → Save. That applies on the next request. The Netlify Drawer is only on deploy previews; turn it off under Project configuration → Developer settings → Continuous deployment → Collaboration tools.

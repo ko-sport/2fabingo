@@ -32,21 +32,24 @@ export default function SetupPage({
   );
 }
 
-function ensureSecret(userId: number): { username: string; secret: string } {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT username, totp_secret FROM users WHERE id = ?")
-    .get(userId) as { username: string; totp_secret: string | null } | undefined;
+async function ensureSecret(userId: number): Promise<{ username: string; secret: string }> {
+  const db = await getDb();
+  const row = await db.get<{ username: string; totp_secret: string | null }>(
+    "SELECT username, totp_secret FROM users WHERE id = ?",
+    [userId],
+  );
   if (!row) redirect("/login");
   if (row.totp_secret) return { username: row.username, secret: row.totp_secret };
   const secret = createSecret();
-  db.prepare(
-    "UPDATE users SET totp_secret = ? WHERE id = ? AND totp_secret IS NULL",
-  ).run(secret, userId);
-  const again = db
-    .prepare("SELECT totp_secret FROM users WHERE id = ?")
-    .get(userId) as { totp_secret: string };
-  return { username: row.username, secret: again.totp_secret };
+  await db.run("UPDATE users SET totp_secret = ? WHERE id = ? AND totp_secret IS NULL", [
+    secret,
+    userId,
+  ]);
+  const again = await db.get<{ totp_secret: string }>(
+    "SELECT totp_secret FROM users WHERE id = ?",
+    [userId],
+  );
+  return { username: row.username, secret: again?.totp_secret ?? secret };
 }
 
 async function SetupGate({ searchParams }: { searchParams: Promise<Search> }) {
@@ -63,7 +66,7 @@ async function SetupGate({ searchParams }: { searchParams: Promise<Search> }) {
         : null;
   if (userId === null) redirect("/login");
 
-  const { username, secret } = ensureSecret(userId);
+  const { username, secret } = await ensureSecret(userId);
   const qr = await qrDataUrl(secret, username);
 
   return (

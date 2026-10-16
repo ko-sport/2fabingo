@@ -23,16 +23,18 @@ export function Achievements() {
     analysis.filled,
   );
   const hundred = `${spanLabel(snapshot.hundred.start, snapshot.hundred.end)} - ${spanPercent(snapshot.hundred.filled, snapshot.hundred.total)}%`;
-  const line = `${spanLabel(snapshot.line.start, snapshot.line.end)} - ${spanPercent(snapshot.line.filled, snapshot.line.total)}%`;
+  const lineName = snapshot.line.label ?? spanLabel(snapshot.line.start, snapshot.line.end);
+  const line = `${lineName} - ${spanPercent(snapshot.line.filled, snapshot.line.total)}%`;
   const block = `${spanLabel(snapshot.block.start, snapshot.block.end)} - ${spanPercent(snapshot.block.filled, snapshot.block.total)}%`;
   const bingo = `${snapshot.bingoFilled.toLocaleString()} / ${snapshot.bingoTotal.toLocaleString()} - ${spanPercent(snapshot.bingoFilled, snapshot.bingoTotal)}%`;
   const nearest = closestLine(lineFill(store.counts));
-  const nearestLine = `${spanLabel(nearest.start, nearest.start + 10)} - ${spanPercent(nearest.filled, 10)}%`;
+  const nearestLine = `${nearest.label} - ${spanPercent(nearest.filled, 10)}%`;
 
   return (
     <div data-testid="progress">
       <h2 className="text-xl font-medium leading-tight text-[#14211b]">Keep track of your progress!</h2>
-      <p className="mt-3 text-sm text-[#14211b]" data-testid="line-count">
+      <p className="mt-1 text-sm text-[#4d6156]">(horizontal, vertical and diagonal all count)</p>
+      <p className="mt-3 text-sm text-[#4d6156]" data-testid="line-count">
         Number of lines: {snapshot.lines.toLocaleString()}
       </p>
       <dl className="mt-4 flex flex-col gap-3">
@@ -40,7 +42,7 @@ export function Achievements() {
           <Row label="Closest line to completion" value={nearestLine} />
         </div>
         <Row label="Closest 100 to completion" value={hundred} />
-        <Row label="Closest line of hundreds to completion" value={line} />
+        <Row label="Closest line of 100s to completion" value={line} />
         <Row label="Closest 10,000 to completion" value={block} />
         <Row label="Bingo" value={bingo} />
       </dl>

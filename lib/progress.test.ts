@@ -28,15 +28,34 @@ describe("progress", () => {
     assert.equal(snapshot.lines, 0);
   });
 
-  it("counts a finished line of ten hundreds", () => {
+  it("counts a finished column and diagonal of ten 100s", () => {
+    const down = new Uint16Array(10_000);
+    for (let row = 0; row < 10; row += 1) down[row * 10] = 100;
+    const downSnapshot = progressSnapshot(down, new Uint32Array(100), 1_000);
+    assert.equal(downSnapshot.lines, 1);
+    assert.equal(downSnapshot.line.label, undefined);
+
+    const diagonal = new Uint16Array(10_000);
+    for (let step = 0; step < 10; step += 1) diagonal[step * 10 + step] = 100;
+    const diagonalSnapshot = progressSnapshot(diagonal, new Uint32Array(100), 1_000);
+    assert.equal(diagonalSnapshot.lines, 1);
+
+    const column = new Uint16Array(10_000);
+    for (let row = 0; row < 10; row += 1) column[row * 10 + 1] = 80;
+    const columnSnapshot = progressSnapshot(column, new Uint32Array(100), 800);
+    assert.equal(columnSnapshot.line.label, "000100 down to 009100");
+    assert.equal(columnSnapshot.line.filled, 800);
+  });
+
+  it("counts a finished line of ten 100s", () => {
     const pages = new Uint16Array(10_000);
     for (let page = 10; page < 20; page += 1) pages[page] = 100;
     const blocks = new Uint32Array(100);
     blocks[0] = 1_000;
     const snapshot = progressSnapshot(pages, blocks, 1_000);
     assert.equal(snapshot.lines, 1);
-    assert.equal(snapshot.line.start, 0);
-    assert.equal(snapshot.line.filled, 0);
+    assert.equal(snapshot.line.label, "000000 down to 009000");
+    assert.equal(snapshot.line.filled, 100);
     assert.equal(snapshot.hundred.start, 0);
     assert.equal(snapshot.hundred.filled, 0);
   });

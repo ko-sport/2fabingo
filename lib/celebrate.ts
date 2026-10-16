@@ -1,6 +1,7 @@
+import { newlyCompleteLines } from "@/lib/lines";
+import { completedHundredLines } from "@/lib/progress";
 import { shareCard, setPercentLabel } from "@/lib/share";
 import { spanLabel } from "@/lib/zoom";
-import { newlyCompleteLines } from "@/lib/lines";
 
 export type Celebration = {
   headline: string;
@@ -23,20 +24,6 @@ function hundredStarts(pageFill: ArrayLike<number>): number[] {
   return starts;
 }
 
-function thousandStarts(pageFill: ArrayLike<number>): number[] {
-  const starts: number[] = [];
-  for (let block = 0; block < 100; block += 1) {
-    for (let row = 0; row < 10; row += 1) {
-      let sum = 0;
-      for (let column = 0; column < 10; column += 1) {
-        sum += pageFill[block * 100 + row * 10 + column] ?? 0;
-      }
-      if (sum >= 1_000) starts.push(block * 10_000 + row * 1_000);
-    }
-  }
-  return starts;
-}
-
 function added(before: number[], after: number[]): number[] {
   const seen = new Set(before);
   return after.filter((start) => !seen.has(start));
@@ -50,14 +37,16 @@ export function celebrate(
 ): Celebration[] {
   const events: Celebration[] = [];
 
-  for (const start of newlyCompleteLines(beforeLines, afterLines)) {
-    events.push(shareCard(`I completed a line! ${spanLabel(start, start + 10)}`, 10, 10));
+  for (const label of newlyCompleteLines(beforeLines, afterLines)) {
+    events.push(shareCard(`I completed a line! ${label}`, 10, 10));
   }
   for (const start of added(hundredStarts(before.pageFill), hundredStarts(after.pageFill))) {
     events.push(shareCard(`I completed a 100! ${spanLabel(start, start + 100)}`, 100, 100));
   }
-  for (const start of added(thousandStarts(before.pageFill), thousandStarts(after.pageFill))) {
-    events.push(shareCard(`I completed a line of 100s! ${spanLabel(start, start + 1_000)}`, 1_000, 1_000));
+  const seenLines = new Set(completedHundredLines(before.pageFill).map((line) => line.id));
+  for (const line of completedHundredLines(after.pageFill)) {
+    if (seenLines.has(line.id)) continue;
+    events.push(shareCard(`I completed a line of 100s! ${line.label}`, 1_000, 1_000));
   }
   for (const block of added(before.houses, after.houses)) {
     const start = block * 10_000;
